@@ -316,6 +316,10 @@ function createSidebar() {
             text: 'VirtualScroll',
             link: '/components/virtual-scroll',
           },
+          {
+            text: 'PageRender',
+            link: '/components/page-render',
+          },
         ],
       },
       {
