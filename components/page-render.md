@@ -51,6 +51,7 @@ PageRender/
 │   └── useLinkAction.ts       # 页面跳转动作处理
 └── utils/                     # 工具函数
     ├── transformHelpers.ts    # 表达式解析和路径解析
+    ├── safeEval.ts            # 安全表达式求值器（替代 new Function）
     ├── componentEventBus.ts   # 组件事件总线
     ├── formatHelpers.ts       # 内置格式化工具函数
     └── linkGuard.ts           # Link 动态路由恢复守卫
@@ -1595,79 +1596,188 @@ function handleLinkAction(actionConfig, row) {
 
 ### 13.1 transformHelpers.ts
 
-#### isPathFormat
+**功能**：提供表达式解析、取值、API 请求创建等核心工具函数。
 
-判断是否为路径格式：
+**安全特性**：使用递归下降解析器（safeEval）替代 `new Function`，无代码注入风险，可通过政府项目安全扫描。
+
+#### resolveExpression
+
+取值 + 字符串插值，失败时原样返回。
 
 ```typescript
-isPathFormat('selection.tree.id');  // true
-isPathFormat('rowData.name');       // true
-isPathFormat('userInfo.userName');  // true
-isPathFormat('普通文本');            // false
+function resolveExpression(expression: string, context: TransformContext): any
 ```
 
-**支持的路径前缀**：
+**处理流程**：
+1. 字符串完全包裹 `${...}` → 提取内部 JS 表达式用 `safeEval` 求值
+2. 混合文本插值（如 `"用户: ${rowData.name}"`）→ 逐个替换 `${expr}` 部分
+3. 路径格式字符串（以 `selection.`、`rowData.` 等开头）→ 尝试 JS 求值
+4. 其他普通字符串 → 原样返回
+
+**使用示例**：
+```typescript
+resolveExpression('${rowData.name}', { rowData: { name: '张三' } });
+// 返回：'张三'
+
+resolveExpression('rowData.price * rowData.count', { rowData: { price: 100, count: 20 } });
+// 返回：2000
+
+resolveExpression('用户: ${rowData.name}', { rowData: { name: '张三' } });
+// 返回：'用户: 张三'
+
+resolveExpression('普通文本', {});
+// 返回：'普通文本'
+```
+
+**支持的路径前缀**（路径格式字符串会自动注入这些上下文）：
 - `selection` - 选中数据
 - `rowData` - 行数据
 - `route` - 路由信息
 - `formData` - 表单数据
 - `userInfo` - 当前用户信息
 
-#### getValueFromContext
-
-从上下文中获取值：
-
-```typescript
-getValueFromContext('rowData.name', { rowData: { name: '张三' } });
-// 返回：'张三'
-```
-
-#### resolveExpression
-
-解析表达式（仅处理 context）：
-
-```typescript
-resolveExpression('${rowData.name}', { rowData: { name: '张三' } });
-// 返回：'张三'
-
-resolveExpression('selection.tree.id', { selection: { tree: { id: '123' } } });
-// 返回：'123'
-```
-
 #### parseExpression
 
-解析表达式（支持复杂计算，使用 `new Function` + `with(context)`）：
+执行任意 JS 表达式，支持调用 context 中的工具函数，失败返回 `defaultValue`。
 
 ```typescript
 function parseExpression(
-  expression: string | boolean | undefined,
+  expression: string | boolean | undefined | null,
   context: TransformContext,
-  defaultValue: boolean = true
+  defaultValue: any = undefined  // 默认 undefined，而非 true
 ): any
 ```
 
 **处理流程**：
 1. 如果是布尔值，直接返回
-2. 如果字符串包含 `${...}` 包裹，先剥离 `${` 和 `}`，提取纯 JS 表达式
-3. 使用 `new Function('context', 'with(context) { return ... }')` 执行
+2. 如果字符串包含 `${...}` 包裹，先剥离 `${` 和 `}`
+3. 使用 `safeEval`（递归下降解析器）执行表达式，替代 `new Function`
 4. 解析失败时返回 `defaultValue`
+
+**与 resolveExpression 的区别**：
+- `resolveExpression` 侧重"取值"，非表达式字符串会原样返回
+- `parseExpression` 侧重"执行"，非表达式字符串会执行失败返回 `defaultValue`
 
 **使用示例**：
 ```typescript
-parseExpression('selection.tree.id === "123"', { selection: { tree: { id: '123' } } }, false);
+parseExpression("status === '1'", { rowData: { status: '1' } }, false);
 // 返回：true
 
-parseExpression('${!selection.tree || !selection.tree.id}', { selection: {} }, false);
-// 返回：true
+parseExpression('selection.tree.id', { selection: { tree: { id: '123' } } });
+// 返回：'123'
 
-parseExpression('rowData.status === 1 && rowData.locked !== true', { rowData: { status: 1, locked: false } }, false);
-// 返回：true
+parseExpression('dateFormat(rowData?.creteTime)', { rowData: { creteTime: '2026-01-15' }, dateFormat: fn });
+// 返回：'2026-01-15'
 
-parseExpression('${rowData.name + " (" + rowData.age + "岁)"}', { rowData: { name: '张三', age: 25 } });
-// 返回：'张三 (25岁)'
+parseExpression("${rowData.name + '-' + rowData.code}", { rowData: { name: '张三', code: '001' } }, '');
+// 返回：'张三-001'
+
+parseExpression("rowData.sex === '1' ? '男' : '女'", { rowData: { sex: '1' } });
+// 返回：'男'
 ```
 
-### 13.2 componentEventBus.ts
+**支持的完整语法**：
+```
+属性访问        rowData.id、selection.categoryTree.id
+可选链          rowData?.creteTime、selection?.areaTree?.areaLevel
+方括号下标      arr[0]、obj['key']、arr?.[0]
+比较            ===、!==、==、!=、>、>=、<、<=
+逻辑            &&、||、!
+三元            condition ? trueVal : falseVal
+函数调用        dateFormat(rowData?.creteTime)
+算术            +、-、*、/、%、()
+字面量          数字、'单引号'、"双引号"、true、false、null、undefined
+```
+
+#### createRequest
+
+创建 API 请求函数：
+
+```typescript
+function createRequest(config: DataSourceConfig): (params?: Recordable) => Promise<any>
+
+// 示例
+const apiFn = createRequest({
+  url: '/api/user/list',
+  method: 'post'
+});
+apiFn({ page: 1 }).then(res => { ... });
+```
+
+#### mergeRequestParams
+
+合并请求参数，支持动态表达式解析和条件过滤：
+
+```typescript
+function mergeRequestParams(
+  params: Recordable,
+  extraParams: Array<{ paramsKey: string; valueKey: string; ifShow?: string }>,
+  context: TransformContext
+): Recordable
+```
+
+**处理流程**：
+1. 复制基础参数
+2. 遍历 extraParams，用 `parseExpression` 计算 `ifShow` 条件
+3. 对通过条件过滤的参数，用 `resolveExpression` 解析 `valueKey`
+4. 值为 `undefined` 时自动跳过，不污染请求参数
+
+### 13.2 safeEval.ts
+
+**功能**：安全表达式求值器，使用递归下降解析器替代 `new Function`，无代码注入风险，可通过政府项目安全扫描。
+
+**设计原理**：
+
+```
+表达式字符串 "rowData.sex === '1' ? '男' : '女'"
+        ↓
+tokenize()  →  [{IDENTIFIER}, {DOT}, {IDENTIFIER}, {OPERATOR:==}, ...]
+        ↓
+parseExpr() → parseTernary → parseLogicalOr → parseEquality → ...
+        ↓
+求值结果  →  "男"
+```
+
+**词法解析（tokenize）**：
+将表达式拆分为有意义的 token 单元：
+
+| Token | 示例 | 说明 |
+|-------|------|------|
+| `NUMBER` | `123`, `3.14` | 数字 |
+| `STRING` | `'男'`, `"key"` | 字符串（支持单引号和双引号） |
+| `BOOLEAN` | `true`, `false` | 布尔值 |
+| `NULL` / `UNDEFINED` | `null`, `undefined` | 空值 |
+| `IDENTIFIER` | `rowData`, `dateFormat` | 变量名/函数名 |
+| `DOT` / `OPTIONAL_CHAIN` | `.`, `?.` | 属性访问 |
+| `LBRACKET` / `RBRACKET` | `[`, `]` | 方括号下标 |
+| `OPERATOR` | `===`, `&&`, `+`, `!` 等 | 运算符 |
+
+**语法解析（递归下降）**：
+```
+expression  → ternary
+ternary     → logical_or ("?" expression ":" expression)?
+logical_or  → logical_and ("||" logical_and)*
+logical_and → equality ("&&" equality)*
+equality    → relational (("==" | "!=" | "===" | "!==") relational)*
+relational  → additive ((">" | ">=" | "<" | "<=") additive)*
+additive    → multiplicative (("+" | "-") multiplicative)*
+multiplicative → unary (("*" | "/" | "%") unary)*
+unary       → ("!" | "-") unary | member
+member      → primary (("?." identifier | "." identifier | "[" expression "]" | "?.[" expression "]") )*
+primary     → NUMBER | STRING | BOOLEAN | NULL | UNDEFINED | IDENTIFIER | "(" expression ")"
+```
+
+**错误日志**：
+表达式求值失败时，控制台会自动打印 `[safeEval]` 组日志（同表达式同阶段最多 3 次防刷屏）：
+
+```
+[safeEval] 求值异常
+  表达式: /market/social-organization/edit
+  上下文: { rowData: { ... } }
+  详情: { error: "意外的 token", pos: 0, currentToken: ... }
+```
+
+### 13.3 componentEventBus.ts
 
 **功能**：组件事件总线
 
@@ -1683,7 +1793,7 @@ componentEventBus.emit(event, payload);  // 触发事件
 - 单元格切换后刷新数据
 - 跨层级组件通信
 
-### 13.3 linkGuard.ts
+### 13.4 linkGuard.ts
 
 **功能**：Link 动态路由恢复守卫。在路由 `beforeEach` 阶段拦截匹配到 404 的路由，从 `sessionStorage` 恢复之前注册的 Link 动态路由，解决刷新页面后动态路由丢失的问题。
 
@@ -2315,6 +2425,7 @@ export function createGuard(router: Router) {
 | 工具 | 用途 | 文件 |
 |------|------|------|
 | `transformHelpers` | 表达式解析和路径解析 | utils/transformHelpers.ts |
+| `safeEval` | 安全表达式求值器（替代 new Function） | utils/safeEval.ts |
 | `formatHelpers` | 内置格式化工具函数（日期、年龄、数字格式化等） | utils/formatHelpers.ts |
 | `componentEventBus` | 组件事件总线 | utils/componentEventBus.ts |
 | `linkGuard` | Link 动态路由恢复守卫 | utils/linkGuard.ts |
