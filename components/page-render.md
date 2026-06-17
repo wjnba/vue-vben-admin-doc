@@ -2,7 +2,7 @@
 
 ## 一、组件概述
 
-**PageRender** 是一个基于配置驱动的动态页面渲染组件，专为医疗健康管理平台设计。该组件采用**元数据驱动架构**，通过 JSON 配置即可生成包含**分类树 + 表格**的完整业务页面，支持高度自定义和扩展。
+**PageRender** 是一个基于配置驱动的动态页面渲染组件，专为医疗健康管理平台设计。该组件采用**元数据驱动架构**，通过 JSON 配置即可生成包含**分类树 + 表格 + 详情描述**的完整业务页面，支持高度自定义和扩展。
 
 ### 核心技术栈
 - Vue 3.4+ (`<script setup lang="ts">`)
@@ -36,11 +36,15 @@ PageRender/
 │   ├── YwtModal.vue           # 弹窗组件
 │   ├── YwtDrawer.vue          # 抽屉组件
 │   ├── YwtForm.vue            # 表单组件
+│   ├── YwtDescription.vue     # 详情描述组件
+│   ├── Description/
+│   │   └── registerComp.ts    # 详情自定义组件注册入口
 │   ├── Form/
 │   │   └── registerComp.ts    # 表单组件注册入口
 │   └── Table/
 │       ├── CellStatusSwitch.vue  # 单元格状态开关组件
 │       ├── CellTag.vue           # 单元格标签组件
+│       ├── CellCopyText.vue      # 单元格复制文本组件
 │       └── registerComp.ts       # 单元格组件注册
 ├── hooks/                     # 组合式 API
 │   ├── useConfigParser.ts     # 配置解析
@@ -1090,9 +1094,229 @@ interface Props {
 
 ---
 
-## 十二、Hooks 详解
+## 十二、详情描述组件 (YwtDescription.vue)
 
-### 12.1 useConfigParser
+### 12.1 功能特性
+
+- **配置驱动**：通过 JSON 配置生成详情描述页面
+- **动态数据源**：支持从 API 加载详情数据，自动合并 `rowData`
+- **表达式支持**：支持 `show` 条件显示表达式
+- **自定义组件**：支持在详情项中使用 `CellTag`、`CellCopyText` 等自定义组件渲染
+- **命名空间插槽**：支持按字段自定义渲染，自动合并 `rowData` 和 API 数据
+- **跨组件通信**：数据加载完成后自动触发 `triggerActions`
+- **前后插槽**：支持 `header`/`footer` 插槽进行内容扩展
+
+### 12.2 Props 配置
+
+```typescript
+interface Props {
+  config: {
+    key: string;                          // 组件唯一标识
+    schema: Array<{                       // 详情项配置
+      field: string;                      // 数据字段路径
+      label: string;                      // 显示标签
+      span?: number;                      // 合并列数
+      labelMinWidth?: number;             // 标签最小宽度
+      contentMinWidth?: number;           // 内容最小宽度
+      show?: string;                      // 条件显示表达式（如 "${rowData.status !== '0'}"）
+      component?: string;                 // 自定义组件名（如 "CellTag"、"CellCopyText"）
+      componentProps?: Recordable;        // 自定义组件属性
+      format?: string;                    // 格式化表达式（自定义组件时使用）
+    }>;
+    dataSource?: {
+      initSetting?: DataSourceConfig;     // 初始化数据请求
+    };
+    triggerActions?: Array<{              // 触发刷新动作
+      type: string;
+      targetKeys: string[];
+    }>;
+    title?: string;                       // 标题
+    useCollapse?: boolean;                // 是否使用折叠容器
+    column?: number | Recordable;         // 列数
+    bordered?: boolean;                   // 是否显示边框
+    size?: 'small' | 'default' | 'middle';// 尺寸
+    collapseOptions?: Recordable;         // 折叠容器配置
+  };
+  rowData?: Recordable;  // 行数据
+}
+```
+
+### 12.3 Schema 配置项
+
+每个详情项通过 `schema` 数组配置：
+
+```typescript
+{
+  "field": "name",           // 数据字段，支持 lodash get 路径
+  "label": "姓名",           // 显示标签
+  "span": 1,                 // 合并列数（可选）
+  "labelMinWidth": 100,      // 标签最小宽度（可选）
+  "contentMinWidth": 200,    // 内容最小宽度（可选）
+  "show": "${rowData.status !== '0'}", // 条件显示（可选，${} 表达式）
+  "component": "CellTag",    // 自定义组件（可选）
+  "componentProps": {...},   // 组件属性（可选）
+  "format": "..."            // 格式化表达式（可选，组件内使用）
+}
+```
+
+#### show - 条件显示
+
+支持 `${}` 表达式，动态控制详情项是否显示：
+
+```typescript
+{
+  "field": "approver",
+  "label": "审批人",
+  "show": "${rowData.status === '1'}"
+}
+```
+
+#### component - 自定义组件
+
+复用 `Description/registerComp.ts` 中注册的组件，目前支持的组件：
+
+| 组件名 | 说明 | 来源 |
+|--------|------|------|
+| `CellTag` | 状态标签（支持颜色映射） | `Table/CellTag.vue` |
+| `CellCopyText` | 复制文本 | `Table/CellCopyText.vue` |
+| `CellStatusSwitch` | 状态开关 | `Table/CellStatusSwitch.vue` |
+
+```typescript
+{
+  "field": "status",
+  "label": "状态",
+  "component": "CellTag",
+  "componentProps": {
+    "mapOption": [
+      { "label": "启用", "value": "1", "color": "green" },
+      { "label": "禁用", "value": "0", "color": "red" }
+    ]
+  }
+}
+```
+
+### 12.4 数据初始化
+
+组件加载数据流程：
+
+1. 接收 `config` 和 `rowData` props
+2. 解构配置中的 `key`、`schema`、`dataSource`、`triggerActions` 等
+3. 通过 `transformDescSchemas` 转换 schema（解析 `show` 表达式，处理自定义组件）
+4. 调用 `setDescProps` 注入 schema 和 DescriptionProps
+5. 如果有 `dataSource.initSetting`，自动发起 API 请求获取额外数据
+6. 合并 `rowData` 和 API 数据，通过 `setDescProps` 注入 `data`
+7. 数据加载完成后自动触发 `triggerActions` 事件总线
+
+### 12.5 数据流
+
+```
+props.config (JSON 配置)
+        ↓
+  解构 key / schema / dataSource / triggerActions
+        ↓
+  transformDescSchemas (转换 schema)
+    ├── 解析 show 表达式为函数
+    ├── 处理 component 自定义组件 → h() 渲染
+    └── 绑定 modelValue 双向绑定
+        ↓
+  setDescProps({ schema, ...descProps })
+        ↓
+  initData()
+    ├── 有 initSetting.url → API 请求
+    ├── 合并 props.rowData + API data
+    └── setDescProps({ data })
+        ↓
+  emitTriggerActions() (触发跨组件通信)
+```
+
+### 12.6 插槽系统
+
+提供三类插槽，均以 `{key}-desc-` 为命名空间前缀。
+
+#### 字段自定义渲染（`{key}-desc-{field}`）
+
+当自定义组件无法满足需求时，可通过命名插槽完全自定义某个详情项的渲染：
+
+```vue
+<PageRender>
+  <template #userDetail-desc-status="{ value, data }">
+    <a-tag :color="value === '1' ? 'green' : 'red'">
+      {{ value === '1' ? '启用' : '禁用' }}
+    </a-tag>
+  </template>
+</PageRender>
+```
+
+> 插槽名格式：`{config.key}-desc-{schema.field}`
+> 作用域数据：`{ value: any, data: Recordable }`
+
+#### 头部插槽（`{key}-desc-header`）
+
+在详情组件上方插入自定义内容：
+
+```vue
+<PageRender>
+  <template #userDetail-desc-header="{ data }">
+    <div class="mb-4">用户：{{ data.name }}</div>
+  </template>
+</PageRender>
+```
+
+#### 底部插槽（`{key}-desc-footer`）
+
+在详情组件下方插入自定义内容：
+
+```vue
+<PageRender>
+  <template #userDetail-desc-footer>
+    <Button type="primary">编辑</Button>
+  </template>
+</PageRender>
+```
+
+### 12.7 配置示例
+
+```json
+{
+  "key": "userDetail",
+  "title": "用户信息",
+  "column": 2,
+  "bordered": false,
+  "schema": [
+    { "field": "name", "label": "姓名" },
+    { "field": "phone", "label": "手机号" },
+    { "field": "email", "label": "邮箱" },
+    { "field": "deptName", "label": "所属部门" },
+    {
+      "field": "status",
+      "label": "状态",
+      "component": "CellTag",
+      "componentProps": {
+        "mapOption": [
+          { "label": "启用", "value": "1", "color": "green" },
+          { "label": "禁用", "value": "0", "color": "red" }
+        ]
+      }
+    },
+    { "field": "createTime", "label": "创建时间", "span": 2 }
+  ],
+  "dataSource": {
+    "initSetting": {
+      "url": "/api/user/detail",
+      "params": { "id": "${rowData.id}" }
+    }
+  },
+  "triggerActions": [
+    { "type": "reload", "targetKeys": ["userTable"] }
+  ]
+}
+```
+
+---
+
+## 十三、Hooks 详解
+
+### 13.1 useConfigParser
 
 **功能**：解析和验证路由配置
 
@@ -1113,7 +1337,7 @@ interface Props {
 4. 深度合并配置（deepMerge）
 5. 监听路由变化自动重新解析
 
-### 12.2 useConfigTransform
+### 13.2 useConfigTransform
 
 **功能**：配置转换和参数处理
 
@@ -1346,7 +1570,44 @@ Schema 支持 `clearBy` 字段，指定依赖字段列表。当依赖字段的�
 - `ApiCascader`：使用 `initFetchParams` 注入参数
 - `ApiRadioGroup`、`ApiSelect`、`ApiTransfer`、`ApiTree`、`ApiTreeSelect`：使用 `params` 注入参数
 
-### 12.3 useSharedSelection
+#### transformDescSchemas
+
+转换 Description 详情 schema：
+
+```typescript
+function transformDescSchemas(
+  schemas: DescSchemaItem[],
+  context: TransformContext
+): DescItem[]
+
+// 处理内容
+// 1. show 表达式转换为函数
+// 2. component 自定义组件渲染（复用 descComponentMap 中的组件）
+// 3. modelValue 双向绑定
+```
+
+**自定义组件渲染**：
+
+```typescript
+{
+  "field": "status",
+  "label": "状态",
+  "component": "CellTag",
+  "componentProps": {
+    "mapOption": [
+      { "label": "启用", "value": "1", "color": "green" },
+      { "label": "禁用", "value": "0", "color": "red" }
+    ]
+  }
+}
+```
+
+支持的组件列表详见 `Description/registerComp.ts`，目前包含：
+- `CellTag` — 状态标签
+- `CellCopyText` — 复制文本
+- `CellStatusSwitch` — 状态开关
+
+### 13.3 useSharedSelection
 
 **功能**：跨组件状态共享
 
@@ -1375,7 +1636,7 @@ updateSelection('tree', selectedNode);
 const treeSelection = getSelectionByKey('tree');
 ```
 
-### 12.4 useCustomSlots
+### 13.4 useCustomSlots
 
 **功能**：处理自定义插槽
 
@@ -1401,7 +1662,7 @@ const cellSlots = slots.withPrefix(() => activeKey.value + '-cell-');
 replaceSlotKey('tab1-cell-name');  // 返回 'name'
 ```
 
-### 12.5 useComponentAction
+### 13.5 useComponentAction
 
 **功能**：处理组件间动作通信。通过事件总线订阅 `comp:action` 事件，根据 `targetKeys` 匹配当前组件 key 来决定是否触发对应的动作。
 
@@ -1436,7 +1697,7 @@ componentEventBus.emit('comp:action', {
 });
 ```
 
-### 12.6 useLinkAction
+### 13.6 useLinkAction
 
 **功能**：处理 Link 类型的操作按钮，支持打开外部链接和内部路由页面。
 
@@ -1592,9 +1853,9 @@ function handleLinkAction(actionConfig, row) {
 
 ---
 
-## 十三、工具函数
+## 十四、工具函数
 
-### 13.1 transformHelpers.ts
+### 14.1 transformHelpers.ts
 
 **功能**：提供表达式解析、取值、API 请求创建等核心工具函数。
 
@@ -1722,7 +1983,7 @@ function mergeRequestParams(
 3. 对通过条件过滤的参数，用 `resolveExpression` 解析 `valueKey`
 4. 值为 `undefined` 时自动跳过，不污染请求参数
 
-### 13.2 safeEval.ts
+### 14.2 safeEval.ts
 
 **功能**：安全表达式求值器，使用递归下降解析器替代 `new Function`，无代码注入风险，可通过政府项目安全扫描。
 
@@ -1897,9 +2158,9 @@ export function createGuard(router: Router) {
 
 ---
 
-## 十四、完整配置示例
+## 十五、完整配置示例
 
-### 14.1 基础配置
+### 15.1 基础配置
 
 ```json
 {
@@ -2186,9 +2447,9 @@ export function createGuard(router: Router) {
 
 ---
 
-## 十五、最佳实践
+## 十六、最佳实践
 
-### 15.1 配置组织
+### 16.1 配置组织
 
 1. **模块化配置**：将复杂配置拆分为多个文件
 2. **常量提取**：提取重复使用的配置片段
@@ -2200,7 +2461,7 @@ export function createGuard(router: Router) {
 2. **复杂计算使用表达式**：`${!selection.tree || !selection.tree.id}`
 3. **避免复杂逻辑**：复杂逻辑应在组件中处理
 
-### 15.3 性能优化
+### 16.3 性能优化
 
 1. **懒加载子节点**：树形表格使用 `getChild` 配置
 2. **避免重复请求**：使用 `loadedNodes` 记录已加载节点
@@ -2212,7 +2473,7 @@ export function createGuard(router: Router) {
 2. **错误提示**：提供友好的错误信息
 3. **降级处理**：配置失败时显示错误界面
 
-### 15.5 调试技巧
+### 16.5 调试技巧
 
 1. **控制台日志**：关键位置添加 `console.log`
 2. **网络请求**：检查请求参数是否正确
@@ -2220,7 +2481,7 @@ export function createGuard(router: Router) {
 
 ---
 
-## 十六、常见问题
+## 十七、常见问题
 
 ### Q1: 如何传递复杂参数？
 
@@ -2345,9 +2606,17 @@ export function createGuard(router: Router) {
 
 ---
 
-## 十七、更新日志
+## 十八、更新日志
 
-### 17.1 v1.1.0 (2026-06-09)
+### 18.1 v1.2.0 (2026-06-17)
+
+- ✅ 新增 `YwtDescription.vue` 详情描述组件，支持配置驱动的详情渲染
+- ✅ 新增 `Description/registerComp.ts`，独立管理详情自定义组件注册
+- ✅ `useConfigTransform` 新增 `transformDescSchemas` 方法
+- ✅ 模板支持 `header`/`footer` 命名空间插槽，扩展详情组件前后内容
+- ✅ 更新 `PageRender` 组件架构图，增加 Description 相关节点
+
+### 18.2 v1.1.0 (2026-06-09)
 
 - ✅ 新增 `useLinkAction` hook，支持 Link 页面跳转动作（外部链接 + 内部路由）
 - ✅ 新增 `CellTag` 单元格标签组件，支持状态颜色映射
@@ -2357,7 +2626,7 @@ export function createGuard(router: Router) {
 - ✅ 优化弹窗/抽屉错误处理，使用 `awaitTo` 替代 try-catch
 - ✅ 优化状态重置，`closeFunc` 返回 Promise
 
-### 17.2 v1.0.0 (2026-06-05)
+### 18.2 v1.0.0 (2026-06-05)
 
 - ✅ 初始版本发布
 - ✅ 支持分类树 + 表格布局
@@ -2370,7 +2639,7 @@ export function createGuard(router: Router) {
 
 ---
 
-## 十八、维护者
+## 十九、维护者
 
 - **开发团队**: 天府惠民 前端团队
 - **最后更新**: 2026-06-09
