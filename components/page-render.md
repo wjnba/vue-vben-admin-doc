@@ -109,15 +109,15 @@ PageRenderConfig (配置对象)
 ```typescript
 // 路由配置示例
 {
-  path: '/example',
-  component: () => import('@/views/PageRender.vue'),
-  meta: {
+    path: '/example',
+        component: () => import('@/views/PageRender.vue'),
+    meta: {
     renderMode: 'auto',
-    extraData: JSON.stringify({
-      categoryTreeConfig: { ... },
-      tableConfig: { ... }
+        extraData: JSON.stringify({
+        categoryTreeConfig: { ... },
+        tableConfig: { ... }
     })
-  }
+}
 }
 ```
 
@@ -131,7 +131,7 @@ PageRenderConfig (配置对象)
   <template #tree-header-actions="{ selection }">
     <Button>自定义按钮</Button>
   </template>
-  
+
   <!-- 传递给表格 name 列的插槽（详见 6.7） -->
   <template #tab1-cell-name="{ record }">
     <a>{{ record.name }}</a>
@@ -156,20 +156,20 @@ PageRenderConfig (配置对象)
 
 ```typescript
 interface DataSourceConfig {
-  url?: string;                              // 请求地址
-  method?: 'get' | 'post' | 'put' | 'delete'; // 请求方法
-  params?: Recordable;                       // 固定参数
-  extraParams?: Array<{                      // 动态参数映射
-    paramsKey: string;   // 请求参数名
-    valueKey: string;    // 值来源路径（支持 ${} 表达式）
-  }>;
-  getChild?: DataSourceConfig;               // 获取子级数据（树形表格）
-  requestOptions?: {
-    dictTransform?: Recordable;              // 字典转换
-  };
-  labelField?: string;                       // 标签字段名
-  valueField?: string;                       // 值字段名
-  childrenField?: string;                    // 子级字段名
+    url?: string;                              // 请求地址
+    method?: 'get' | 'post' | 'put' | 'delete'; // 请求方法
+    params?: Recordable;                       // 固定参数
+    extraParams?: Array<{                      // 动态参数映射
+        paramsKey: string;   // 请求参数名
+        valueKey: string;    // 值来源路径（支持 ${} 表达式）
+    }>;
+    getChild?: DataSourceConfig;               // 获取子级数据（树形表格）
+    requestOptions?: {
+        dictTransform?: Recordable;              // 字典转换
+    };
+    labelField?: string;                       // 标签字段名
+    valueField?: string;                       // 值字段名
+    childrenField?: string;                    // 子级字段名
 }
 ```
 
@@ -177,14 +177,14 @@ interface DataSourceConfig {
 
 ```typescript
 interface HandleControlConfig {
-  component: string;                          // 交互组件类型：Popconfirm | YwtModal | YwtDrawer | Link
-  componentProps?: Recordable;                // 组件属性
-  slotComponent?: string;                     // 内部插槽组件：YwtForm | YwtTable
-  slotComponentProps?: Recordable;            // 插槽组件属性
-  dataSource?: {
-    initSetting?: DataSourceConfig;           // 初始化数据请求
-    updateSetting?: DataSourceConfig;         // 更新数据请求
-  };
+    component: string;                          // 交互组件类型：Popconfirm | YwtModal | YwtDrawer | Link
+    componentProps?: Recordable;                // 组件属性
+    slotComponent?: string;                     // 内部插槽组件：YwtForm | YwtTable
+    slotComponentProps?: Recordable;            // 插槽组件属性
+    dataSource?: {
+        initSetting?: DataSourceConfig;           // 初始化数据请求
+        updateSetting?: DataSourceConfig;         // 更新数据请求
+    };
 }
 ```
 
@@ -200,13 +200,13 @@ interface HandleControlConfig {
 
 ```typescript
 interface ActionConfig {
-  label: string;                    // 按钮文本（支持 ${} 表达式）
-  key: string;                      // 唯一标识
-  type?: 'primary' | 'warning' | 'danger' | 'success' | 'default';
-  icon?: string;                    // 图标（转换为 preIcon）
-  className?: string;               // 自定义类名
-  handleControl?: HandleControlConfig; // 交互控制
-  disabled?: boolean | string;      // 禁用状态（支持表达式）
+    label: string;                    // 按钮文本（支持 ${} 表达式）
+    key: string;                      // 唯一标识
+    type?: 'primary' | 'warning' | 'danger' | 'success' | 'default';
+    icon?: string;                    // 图标（转换为 preIcon）
+    className?: string;               // 自定义类名
+    handleControl?: HandleControlConfig; // 交互控制
+    disabled?: boolean | string;      // 禁用状态（支持表达式）
 }
 ```
 
@@ -214,10 +214,10 @@ interface ActionConfig {
 
 ```typescript
 interface CellActionConfig extends Omit<ActionItem, 'ifShow' | 'disabled'> {
-  key: string;
-  handleControl?: HandleControlConfig;
-  disabled?: boolean | string | ((action: CellActionConfig) => boolean);
-  ifShow?: boolean | string | ((action: CellActionConfig) => boolean);
+    key: string;
+    handleControl?: HandleControlConfig;
+    disabled?: boolean | string | ((action: CellActionConfig) => boolean);
+    ifShow?: boolean | string | ((action: CellActionConfig) => boolean);
 }
 ```
 
@@ -225,25 +225,25 @@ interface CellActionConfig extends Omit<ActionItem, 'ifShow' | 'disabled'> {
 
 ```typescript
 interface TableTabConfig {
-  key: string;                              // 标签页唯一标识
-  label: string;                            // 标签文本
-  icon?: string;                            // 图标
-  disabled?: boolean;                       // 是否禁用
-  showCount?: number;                       // 是否显示数量
-  count?: number;                           // 数量值
-  dataSource?: {
-    initSetting?: DataSourceConfig;         // 初始化数据请求
-    updateSetting?: DataSourceConfig;       // 更新数据请求
-  };
-  headerActions?: ActionConfig[];           // 头部操作按钮
-  cellActions?: CellActionConfig[];         // 行操作按钮
-  componentProps?: {
-    columns?: BasicColumn[];                // 列配置
-    formConfig?: {
-      schemas?: FormSchema[];               // 表单配置
+    key: string;                              // 标签页唯一标识
+    label: string;                            // 标签文本
+    icon?: string;                            // 图标
+    disabled?: boolean;                       // 是否禁用
+    showCount?: number;                       // 是否显示数量
+    count?: number;                           // 数量值
+    dataSource?: {
+        initSetting?: DataSourceConfig;         // 初始化数据请求
+        updateSetting?: DataSourceConfig;       // 更新数据请求
     };
-    actionColumn?: Recordable;              // 操作列配置
-  };
+    headerActions?: ActionConfig[];           // 头部操作按钮
+    cellActions?: CellActionConfig[];         // 行操作按钮
+    componentProps?: {
+        columns?: BasicColumn[];                // 列配置
+        formConfig?: {
+            schemas?: FormSchema[];               // 表单配置
+        };
+        actionColumn?: Recordable;              // 操作列配置
+    };
 }
 ```
 
@@ -251,14 +251,14 @@ interface TableTabConfig {
 
 ```typescript
 interface CategoryTreeConfig {
-  key: string;                              // 树组件标识
-  title?: string;                           // 树标题
-  headerActions?: ActionConfig[];           // 头部操作按钮
-  cellActions?: ActionConfig[];             // 节点操作按钮
-  dataSource?: {
-    initSetting?: DataSourceConfig;         // 初始化数据请求
-    updateSetting?: DataSourceConfig;       // 更新数据请求
-  };
+    key: string;                              // 树组件标识
+    title?: string;                           // 树标题
+    headerActions?: ActionConfig[];           // 头部操作按钮
+    cellActions?: ActionConfig[];             // 节点操作按钮
+    dataSource?: {
+        initSetting?: DataSourceConfig;         // 初始化数据请求
+        updateSetting?: DataSourceConfig;       // 更新数据请求
+    };
 }
 ```
 
@@ -266,14 +266,25 @@ interface CategoryTreeConfig {
 
 ```typescript
 interface TransformContext {
-  route?: Recordable;     // 路由信息
-  rowData?: Recordable;   // 行数据
-  formData?: Recordable;  // 表单数据
-  selection?: Recordable; // 选中数据
-  userInfo?: Recordable;  // 当前用户信息（来自 userStore.getUserInfo）
-  [key: string]: any;
+    route?: Recordable;     // 路由信息
+    rowData?: Recordable;   // 行数据
+    formData?: Recordable;  // 表单数据
+    selection?: Recordable; // 选中数据
+    userInfo?: Recordable;  // 当前用户信息（来自 userStore.getUserInfo）
+    [key: string]: any;
 }
 ```
+
+#### MergeCellConfig - 合并单元格配置
+
+```typescript
+type MergeCellConfig = boolean | { groupBy?: string };
+```
+
+- `true`：相邻行相同值自动合并
+- `{ groupBy: 'fieldName' }`：按指定字段分组，组内相邻相同值合并
+
+详见 [6.4 mergeCell - 合并单元格](#mergecell---合并单元格)。
 
 ---
 
@@ -578,6 +589,54 @@ interface TableConfig {
 }
 ```
 
+#### mergeCell - 合并单元格
+
+支持将相邻行中相同值的列合并为一个单元格，适用于分类汇总、分组展示等场景。
+
+**配置方式**：
+
+```typescript
+{
+  // 简写：相邻行相同值自动合并
+  "title": "分类",
+  "dataIndex": "category",
+  "mergeCell": true
+}
+```
+
+```typescript
+{
+  // 完整写法：按指定分组字段合并，只在组内进行合并
+  "title": "日期",
+  "dataIndex": "date",
+  "mergeCell": {
+    "groupBy": "category"
+  }
+}
+```
+
+**两种模式对比**：
+
+以如下数据为例：
+
+| 日期 | 分类 | 金额 |
+|------|------|------|
+| 2026-01-01 | 餐饮 | 30 |
+| 2026-01-01 | 餐饮 | 25 |
+| 2026-01-01 | 交通 | 50 |
+| 2026-01-02 | 餐饮 | 35 |
+| 2026-01-02 | 交通 | 60 |
+| 2026-01-02 | 交通 | 20 |
+
+- **`mergeCell: true`**：只看当前列值是否与上一行相同，相同则合并。日期列 "2026-01-01" 三行合并，"2026-01-02" 三行合并。
+- **`mergeCell: { groupBy: "category" }`**：先按 `category` 分组，分组内相同值再合并。日期列在餐饮组内相同（不合并），交通组内相同（不合并），跨组不合并，合并结果更精准。
+
+> **注意**：
+> - 合并仅在同一页数据内生效，不支持跨页合并
+> - 树形表格（`isTreeTable`）不支持合并单元格
+> - `mergeCell` 与 `component`（自定义组件）互斥，组件列优先
+> - 排序、筛选后会自动重新计算合并范围
+
 ### 6.5 行操作按钮
 
 支持三种状态：
@@ -754,22 +813,22 @@ interface TableConfig {
 
 ```typescript
 interface Props {
-  config: {
-    key: string;                          // 表单标识
-    triggerActions?: Array<{              // 触发刷新动作
-      type: string;
-      targetKeys: string[];
-    }>;
-    dataSource?: {
-      initSetting?: DataSourceConfig;     // 初始化数据请求
-      updateSetting?: DataSourceConfig;   // 更新数据请求
+    config: {
+        key: string;                          // 表单标识
+        triggerActions?: Array<{              // 触发刷新动作
+            type: string;
+            targetKeys: string[];
+        }>;
+        dataSource?: {
+            initSetting?: DataSourceConfig;     // 初始化数据请求
+            updateSetting?: DataSourceConfig;   // 更新数据请求
+        };
+        // BasicForm 的其他配置
+        schemas?: FormSchema[];
+        labelWidth?: number;
+        ...
     };
-    // BasicForm 的其他配置
-    schemas?: FormSchema[];
-    labelWidth?: number;
-    ...
-  };
-  rowData?: Recordable;  // 行数据（用于编辑场景）
+    rowData?: Recordable;  // 行数据（用于编辑场景）
 }
 ```
 
@@ -779,9 +838,9 @@ interface Props {
 
 ```typescript
 {
-  "field": "name",
-  "component": "Input",
-  "show": "${formData.type === 1}"
+    "field": "name",
+        "component": "Input",
+        "show": "${formData.type === 1}"
 }
 ```
 
@@ -789,9 +848,9 @@ interface Props {
 
 ```typescript
 {
-  "field": "age",
-  "component": "InputNumber",
-  "ifShow": "${formData.hasAge === true}"
+    "field": "age",
+        "component": "InputNumber",
+        "ifShow": "${formData.hasAge === true}"
 }
 ```
 
@@ -799,9 +858,9 @@ interface Props {
 
 ```typescript
 {
-  "field": "email",
-  "component": "Input",
-  "dynamicDisabled": "${formData.locked === true}"
+    "field": "email",
+        "component": "Input",
+        "dynamicDisabled": "${formData.locked === true}"
 }
 ```
 
@@ -817,18 +876,18 @@ interface Props {
 
 ```typescript
 {
-  "field": "categoryId",
-  "component": "ApiSelect",
-  "componentProps": {
-    "dataSource": {
-      "initSetting": {
-        "url": "/api/category/list",
-        "extraParams": [
-          { "paramsKey": "parentId", "valueKey": "${formData.parentId}" }
-        ]
-      }
+    "field": "categoryId",
+        "component": "ApiSelect",
+        "componentProps": {
+        "dataSource": {
+            "initSetting": {
+                "url": "/api/category/list",
+                    "extraParams": [
+                    { "paramsKey": "parentId", "valueKey": "${formData.parentId}" }
+                ]
+            }
+        }
     }
-  }
 }
 ```
 
@@ -836,9 +895,9 @@ interface Props {
 
 ```typescript
 {
-  "field": "subCategoryId",
-  "component": "ApiSelect",
-  "clearBy": ["categoryId"]  // 当 categoryId 变化时清空 subCategoryId
+    "field": "subCategoryId",
+        "component": "ApiSelect",
+        "clearBy": ["categoryId"]  // 当 categoryId 变化时清空 subCategoryId
 }
 ```
 
@@ -854,32 +913,32 @@ interface Props {
 
 ```typescript
 async function handleOk() {
-  // 1. 验证表单
-  const values = await validate();
-  
-  // 2. 合并参数
-  const params = mergeRequestParams(
-    { ...values, ...(updateSetting?.params || {}) },
-    updateSetting?.extraParams || [],
-    {
-      rowData: props.rowData,
-      formData: values,
-    }
-  );
-  
-  // 3. 发送请求
-  const apiFn = createRequest(updateSetting || {});
-  return apiFn(params).then((res) => {
-    message.success(res?.message || '操作成功');
-    
-    // 4. 触发刷新动作
-    triggerActions.value.forEach((act) => {
-      componentEventBus.emit('comp:action', {
-        action: act.type,
-        targetKeys: act.targetKeys,
-      });
+    // 1. 验证表单
+    const values = await validate();
+
+    // 2. 合并参数
+    const params = mergeRequestParams(
+        { ...values, ...(updateSetting?.params || {}) },
+        updateSetting?.extraParams || [],
+        {
+            rowData: props.rowData,
+            formData: values,
+        }
+    );
+
+    // 3. 发送请求
+    const apiFn = createRequest(updateSetting || {});
+    return apiFn(params).then((res) => {
+        message.success(res?.message || '操作成功');
+
+        // 4. 触发刷新动作
+        triggerActions.value.forEach((act) => {
+            componentEventBus.emit('comp:action', {
+                action: act.type,
+                targetKeys: act.targetKeys,
+            });
+        });
     });
-  });
 }
 ```
 
@@ -914,8 +973,8 @@ async function handleOk() {
 
 ```typescript
 {
-  actionConfig: HandleControlConfig;  // 操作配置
-  row?: Recordable;                    // 行数据
+    actionConfig: HandleControlConfig;  // 操作配置
+    row?: Recordable;                    // 行数据
 }
 ```
 
@@ -923,8 +982,8 @@ async function handleOk() {
 
 ```typescript
 const componentsMap = {
-  YwtForm,   // 表单组件
-  YwtTable,  // 表格组件
+    YwtForm,   // 表单组件
+    YwtTable,  // 表格组件
 };
 ```
 
@@ -997,24 +1056,24 @@ const componentsMap = {
 
 ```typescript
 interface Props {
-  record?: Recordable;                    // 行数据
-  triggerActions?: Array<{                // 触发刷新动作
-    type: string;
-    targetKeys: string[];
-  }>;
-  dataSource?: {                          // 数据源配置
-    updateSetting?: {
-      enableUrl?: string;                 // 启用状态的请求地址
-      disabledUrl?: string;               // 停用状态的请求地址
-      method?: string;
-      params?: Recordable;
-      extraParams?: Array<{
-        paramsKey: string;
-        valueKey: string;
-      }>;
+    record?: Recordable;                    // 行数据
+    triggerActions?: Array<{                // 触发刷新动作
+        type: string;
+        targetKeys: string[];
+    }>;
+    dataSource?: {                          // 数据源配置
+        updateSetting?: {
+            enableUrl?: string;                 // 启用状态的请求地址
+            disabledUrl?: string;               // 停用状态的请求地址
+            method?: string;
+            params?: Recordable;
+            extraParams?: Array<{
+                paramsKey: string;
+                valueKey: string;
+            }>;
+        };
     };
-  };
-  disabled?: string;                      // 禁用表达式（如 "${rowData.locked}"）
+    disabled?: string;                      // 禁用表达式（如 "${rowData.locked}"）
 }
 ```
 
@@ -1022,24 +1081,24 @@ interface Props {
 
 ```typescript
 {
-  "dataIndex": "status",
-  "component": "CellStatusSwitch",
-  "bindField": "status",
-  "triggerActions": [
-    { "type": "reload", "targetKeys": ["tab1"] }
-  ],
-  "componentProps": {
-    "dataSource": {
-      "updateSetting": {
-        "enableUrl": "/api/enable",
-        "disabledUrl": "/api/disable",
-        "extraParams": [
-          { "paramsKey": "id", "valueKey": "${rowData.id}" }
-        ]
-      }
-    },
-    "disabled": "${rowData.locked === true}"
-  }
+    "dataIndex": "status",
+        "component": "CellStatusSwitch",
+        "bindField": "status",
+        "triggerActions": [
+        { "type": "reload", "targetKeys": ["tab1"] }
+    ],
+        "componentProps": {
+        "dataSource": {
+            "updateSetting": {
+                "enableUrl": "/api/enable",
+                    "disabledUrl": "/api/disable",
+                    "extraParams": [
+                    { "paramsKey": "id", "valueKey": "${rowData.id}" }
+                ]
+            }
+        },
+        "disabled": "${rowData.locked === true}"
+    }
 }
 ```
 
@@ -1058,15 +1117,15 @@ interface Props {
 
 ```typescript
 interface MapOption {
-  label: string;                // 显示文本
-  value: string | number | boolean; // 匹配值
-  color?: string;              // 标签颜色（可选，自动分配）
+    label: string;                // 显示文本
+    value: string | number | boolean; // 匹配值
+    color?: string;              // 标签颜色（可选，自动分配）
 }
 
 interface Props {
-  record?: Recordable;          // 行数据
-  mapOption?: MapOption[];      // 值映射配置
-  format?: string;              // 格式化表达式（当无映射匹配时使用）
+    record?: Recordable;          // 行数据
+    mapOption?: MapOption[];      // 值映射配置
+    format?: string;              // 格式化表达式（当无映射匹配时使用）
 }
 ```
 
@@ -1074,15 +1133,15 @@ interface Props {
 
 ```typescript
 {
-  "dataIndex": "status",
-  "component": "CellTag",
-  "bindField": "status",
-  "componentProps": {
-    "mapOption": [
-      { "label": "已启用", "value": 1, "color": "green" },
-      { "label": "已停用", "value": 0, "color": "red" }
-    ]
-  }
+    "dataIndex": "status",
+        "component": "CellTag",
+        "bindField": "status",
+        "componentProps": {
+        "mapOption": [
+            { "label": "已启用", "value": 1, "color": "green" },
+            { "label": "已停用", "value": 0, "color": "red" }
+        ]
+    }
 }
 ```
 
@@ -1110,34 +1169,34 @@ interface Props {
 
 ```typescript
 interface Props {
-  config: {
-    key: string;                          // 组件唯一标识
-    schema: Array<{                       // 详情项配置
-      field: string;                      // 数据字段路径
-      label: string;                      // 显示标签
-      span?: number;                      // 合并列数
-      labelMinWidth?: number;             // 标签最小宽度
-      contentMinWidth?: number;           // 内容最小宽度
-      show?: string;                      // 条件显示表达式（如 "${rowData.status !== '0'}"）
-      component?: string;                 // 自定义组件名（如 "CellTag"、"CellCopyText"）
-      componentProps?: Recordable;        // 自定义组件属性
-      format?: string;                    // 格式化表达式（自定义组件时使用）
-    }>;
-    dataSource?: {
-      initSetting?: DataSourceConfig;     // 初始化数据请求
+    config: {
+        key: string;                          // 组件唯一标识
+        schema: Array<{                       // 详情项配置
+            field: string;                      // 数据字段路径
+            label: string;                      // 显示标签
+            span?: number;                      // 合并列数
+            labelMinWidth?: number;             // 标签最小宽度
+            contentMinWidth?: number;           // 内容最小宽度
+            show?: string;                      // 条件显示表达式（如 "${rowData.status !== '0'}"）
+            component?: string;                 // 自定义组件名（如 "CellTag"、"CellCopyText"）
+            componentProps?: Recordable;        // 自定义组件属性
+            format?: string;                    // 格式化表达式（自定义组件时使用）
+        }>;
+        dataSource?: {
+            initSetting?: DataSourceConfig;     // 初始化数据请求
+        };
+        triggerActions?: Array<{              // 触发刷新动作
+            type: string;
+            targetKeys: string[];
+        }>;
+        title?: string;                       // 标题
+        useCollapse?: boolean;                // 是否使用折叠容器
+        column?: number | Recordable;         // 列数
+        bordered?: boolean;                   // 是否显示边框
+        size?: 'small' | 'default' | 'middle';// 尺寸
+        collapseOptions?: Recordable;         // 折叠容器配置
     };
-    triggerActions?: Array<{              // 触发刷新动作
-      type: string;
-      targetKeys: string[];
-    }>;
-    title?: string;                       // 标题
-    useCollapse?: boolean;                // 是否使用折叠容器
-    column?: number | Recordable;         // 列数
-    bordered?: boolean;                   // 是否显示边框
-    size?: 'small' | 'default' | 'middle';// 尺寸
-    collapseOptions?: Recordable;         // 折叠容器配置
-  };
-  rowData?: Recordable;  // 行数据
+    rowData?: Recordable;  // 行数据
 }
 ```
 
@@ -1147,15 +1206,15 @@ interface Props {
 
 ```typescript
 {
-  "field": "name",           // 数据字段，支持 lodash get 路径
-  "label": "姓名",           // 显示标签
-  "span": 1,                 // 合并列数（可选）
-  "labelMinWidth": 100,      // 标签最小宽度（可选）
-  "contentMinWidth": 200,    // 内容最小宽度（可选）
-  "show": "${rowData.status !== '0'}", // 条件显示（可选，${} 表达式）
-  "component": "CellTag",    // 自定义组件（可选）
-  "componentProps": {...},   // 组件属性（可选）
-  "format": "..."            // 格式化表达式（可选，组件内使用）
+    "field": "name",           // 数据字段，支持 lodash get 路径
+        "label": "姓名",           // 显示标签
+        "span": 1,                 // 合并列数（可选）
+        "labelMinWidth": 100,      // 标签最小宽度（可选）
+        "contentMinWidth": 200,    // 内容最小宽度（可选）
+        "show": "${rowData.status !== '0'}", // 条件显示（可选，${} 表达式）
+        "component": "CellTag",    // 自定义组件（可选）
+        "componentProps": {...},   // 组件属性（可选）
+    "format": "..."            // 格式化表达式（可选，组件内使用）
 }
 ```
 
@@ -1165,9 +1224,9 @@ interface Props {
 
 ```typescript
 {
-  "field": "approver",
-  "label": "审批人",
-  "show": "${rowData.status === '1'}"
+    "field": "approver",
+        "label": "审批人",
+        "show": "${rowData.status === '1'}"
 }
 ```
 
@@ -1183,15 +1242,15 @@ interface Props {
 
 ```typescript
 {
-  "field": "status",
-  "label": "状态",
-  "component": "CellTag",
-  "componentProps": {
-    "mapOption": [
-      { "label": "启用", "value": "1", "color": "green" },
-      { "label": "禁用", "value": "0", "color": "red" }
-    ]
-  }
+    "field": "status",
+        "label": "状态",
+        "component": "CellTag",
+        "componentProps": {
+        "mapOption": [
+            { "label": "启用", "value": "1", "color": "green" },
+            { "label": "禁用", "value": "0", "color": "red" }
+        ]
+    }
 }
 ```
 
@@ -1323,10 +1382,10 @@ props.config (JSON 配置)
 **返回值**：
 ```typescript
 {
-  autoJson: Ref<PageRenderConfig>;  // 解析后的配置
-  isValid: Ref<boolean>;             // 是否有效
-  errorMsg: Ref<string | null>;      // 错误信息
-  renderMode: string;                // 渲染模式
+    autoJson: Ref<PageRenderConfig>;  // 解析后的配置
+    isValid: Ref<boolean>;             // 是否有效
+    errorMsg: Ref<string | null>;      // 错误信息
+    renderMode: string;                // 渲染模式
 }
 ```
 
@@ -1349,13 +1408,13 @@ props.config (JSON 配置)
 
 ```typescript
 function buildContext(overrideContext: Partial<TransformContext> = {}): TransformContext {
-  return {
-    route,                                     // 当前路由信息
-    selection: selectionStore?.selection || {}, // 跨组件选中数据
-    userInfo: userStore.getUserInfo || {},      // 当前登录用户信息
-    ...formatHelpers,                          // 注入内置格式化工具函数
-    ...overrideContext,                        // 调用方传入的上下文（优先级最高）
-  };
+    return {
+        route,                                     // 当前路由信息
+        selection: selectionStore?.selection || {}, // 跨组件选中数据
+        userInfo: userStore.getUserInfo || {},      // 当前登录用户信息
+        ...formatHelpers,                          // 注入内置格式化工具函数
+        ...overrideContext,                        // 调用方传入的上下文（优先级最高）
+    };
 }
 ```
 
@@ -1367,16 +1426,16 @@ function buildContext(overrideContext: Partial<TransformContext> = {}): Transfor
 
 ```typescript
 function mergeRequestParams(
-  params: Recordable,
-  extraParams: Array<{ paramsKey: string; valueKey: string; ifShow?: string }>,
-  context: TransformContext = {}
+    params: Recordable,
+    extraParams: Array<{ paramsKey: string; valueKey: string; ifShow?: string }>,
+    context: TransformContext = {}
 ): Recordable
 
 // 使用示例
 const params = mergeRequestParams(
-  { status: '1' },
-  [{ paramsKey: 'id', valueKey: 'selection.tree.id' }],
-  { selection: { tree: { id: '123' } } }
+    { status: '1' },
+    [{ paramsKey: 'id', valueKey: 'selection.tree.id' }],
+    { selection: { tree: { id: '123' } } }
 );
 // 结果：{ status: '1', id: '123' }
 ```
@@ -1391,8 +1450,8 @@ const params = mergeRequestParams(
 
 ```typescript
 function resolveExpression(
-  expression: string,
-  context: TransformContext
+    expression: string,
+    context: TransformContext
 ): any
 
 // 处理逻辑
@@ -1421,18 +1480,18 @@ resolveExpression('普通文本', {});
 
 ```typescript
 function createRequest(config: DataSourceConfig) {
-  return (params?: Recordable) => {
-    const url = config.url || '';
-    const method = config.method || 'post';
-    const requestOptions = config.requestOptions || {};
-    return defHttp.request({ url, method, params }, requestOptions);
-  };
+    return (params?: Recordable) => {
+        const url = config.url || '';
+        const method = config.method || 'post';
+        const requestOptions = config.requestOptions || {};
+        return defHttp.request({ url, method, params }, requestOptions);
+    };
 }
 
 // 使用示例
 const apiFn = createRequest({
-  url: '/api/user/list',
-  method: 'post'
+    url: '/api/user/list',
+    method: 'post'
 });
 apiFn({ page: 1 }).then(res => { ... });
 ```
@@ -1457,29 +1516,29 @@ apiFn({ page: 1 }).then(res => { ... });
 
 ```typescript
 {
-  "title": "创建时间",
-  "dataIndex": "createTime",
-  "format": "${dateFormat(rowData.createTime, 'YYYY-MM-DD HH:mm')}"
+    "title": "创建时间",
+        "dataIndex": "createTime",
+        "format": "${dateFormat(rowData.createTime, 'YYYY-MM-DD HH:mm')}"
 }
 {
-  "title": "年龄",
-  "dataIndex": "birthday",
-  "format": "${calcAge(rowData.birthday) + '岁'}"
+    "title": "年龄",
+    "dataIndex": "birthday",
+    "format": "${calcAge(rowData.birthday) + '岁'}"
 }
 {
-  "title": "更新时间",
-  "dataIndex": "updateTime",
-  "format": "${relativeTime(rowData.updateTime)}"
+    "title": "更新时间",
+    "dataIndex": "updateTime",
+    "format": "${relativeTime(rowData.updateTime)}"
 }
 {
-  "title": "金额",
-  "dataIndex": "amount",
-  "format": "${'¥' + numberFormat(rowData.amount) + '元'}"
+    "title": "金额",
+    "dataIndex": "amount",
+    "format": "${'¥' + numberFormat(rowData.amount) + '元'}"
 }
 {
-  "title": "备注",
-  "dataIndex": "remark",
-  "format": "${truncate(rowData.remark, 20)}"
+    "title": "备注",
+    "dataIndex": "remark",
+    "format": "${truncate(rowData.remark, 20)}"
 }
 ```
 
@@ -1487,9 +1546,9 @@ apiFn({ page: 1 }).then(res => { ... });
 
 ```typescript
 {
-  "title": "审核人",
-  "dataIndex": "auditor",
-  "ifShow": "${!empty(rowData.auditor)}"  // 有审核人时才显示该列
+    "title": "审核人",
+        "dataIndex": "auditor",
+        "ifShow": "${!empty(rowData.auditor)}"  // 有审核人时才显示该列
 }
 ```
 
@@ -1499,8 +1558,8 @@ apiFn({ page: 1 }).then(res => { ... });
 
 ```typescript
 function transformHeaderActions(
-  actions: ActionConfig[],
-  context: TransformContext
+    actions: ActionConfig[],
+    context: TransformContext
 ): ActionConfig[]
 
 // 处理内容
@@ -1527,9 +1586,9 @@ function transformColumns(columns: any[]): BasicColumn[]
 
 ```typescript
 function transformRowActions(
-  actions: CellActionConfig[],
-  context: TransformContext,
-  handleAction?: (actionConfig: HandleControlConfig, row: Recordable) => void
+    actions: CellActionConfig[],
+    context: TransformContext,
+    handleAction?: (actionConfig: HandleControlConfig, row: Recordable) => void
 ): CellActionConfig[]
 
 // 处理内容
@@ -1558,9 +1617,9 @@ Schema 支持 `clearBy` 字段，指定依赖字段列表。当依赖字段的�
 
 ```typescript
 {
-  "field": "subCategoryId",
-  "component": "ApiSelect",
-  "clearBy": ["categoryId"]  // 当 categoryId 变化时清空 subCategoryId
+    "field": "subCategoryId",
+        "component": "ApiSelect",
+        "clearBy": ["categoryId"]  // 当 categoryId 变化时清空 subCategoryId
 }
 ```
 
@@ -1576,8 +1635,8 @@ Schema 支持 `clearBy` 字段，指定依赖字段列表。当依赖字段的�
 
 ```typescript
 function transformDescSchemas(
-  schemas: DescSchemaItem[],
-  context: TransformContext
+    schemas: DescSchemaItem[],
+    context: TransformContext
 ): DescItem[]
 
 // 处理内容
@@ -1590,15 +1649,15 @@ function transformDescSchemas(
 
 ```typescript
 {
-  "field": "status",
-  "label": "状态",
-  "component": "CellTag",
-  "componentProps": {
-    "mapOption": [
-      { "label": "启用", "value": "1", "color": "green" },
-      { "label": "禁用", "value": "0", "color": "red" }
-    ]
-  }
+    "field": "status",
+        "label": "状态",
+        "component": "CellTag",
+        "componentProps": {
+        "mapOption": [
+            { "label": "启用", "value": "1", "color": "green" },
+            { "label": "禁用", "value": "0", "color": "red" }
+        ]
+    }
 }
 ```
 
@@ -1614,10 +1673,10 @@ function transformDescSchemas(
 **返回值**：
 ```typescript
 {
-  selection: Reactive<Recordable>;           // 选中数据集合
-  updateSelection: (key, data) => void;      // 更新选中数据
-  getSelectionByKey: (key) => Recordable;    // 获取选中数据
-  clearSelection: (key?) => void;            // 清空选中数据
+    selection: Reactive<Recordable>;           // 选中数据集合
+    updateSelection: (key, data) => void;      // 更新选中数据
+    getSelectionByKey: (key) => Recordable;    // 获取选中数据
+    clearSelection: (key?) => void;            // 清空选中数据
 }
 ```
 
@@ -1643,9 +1702,9 @@ const treeSelection = getSelectionByKey('tree');
 **返回值**：
 ```typescript
 {
-  slotKeys: ComputedRef<string[]>;     // 匹配的插槽键名
-  replaceSlotKey: (key) => string;     // 替换插槽键名
-  renderSlots: (scopeData) => VNode[]; // 渲染插槽
+    slotKeys: ComputedRef<string[]>;     // 匹配的插槽键名
+    replaceSlotKey: (key) => string;     // 替换插槽键名
+    renderSlots: (scopeData) => VNode[]; // 渲染插槽
 }
 ```
 
@@ -1669,8 +1728,8 @@ replaceSlotKey('tab1-cell-name');  // 返回 'name'
 **参数**：
 ```typescript
 function useComponentAction(
-  componentKey: MaybeRefOrGetter<string>,  // 当前组件的 key（支持 ref）
-  actionMap: Record<string, (payload?: any) => void> // 动作映射表
+    componentKey: MaybeRefOrGetter<string>,  // 当前组件的 key（支持 ref）
+    actionMap: Record<string, (payload?: any) => void> // 动作映射表
 )
 ```
 
@@ -1686,14 +1745,14 @@ function useComponentAction(
 ```typescript
 // 在 YwtTable.vue 中注册
 useComponentAction(activeKey, {
-  reload: () => reload()       // 收到 reload 动作时刷新表格
+    reload: () => reload()       // 收到 reload 动作时刷新表格
 });
 
 // 在 YwtForm.vue 中提交成功后触发
 componentEventBus.emit('comp:action', {
-  action: 'reload',
-  targetKeys: ['tab1'],       // 只刷新 tab1 对应的表格
-  payload: {}                  // 可选额外参数
+    action: 'reload',
+    targetKeys: ['tab1'],       // 只刷新 tab1 对应的表格
+    payload: {}                  // 可选额外参数
 });
 ```
 
@@ -1705,8 +1764,8 @@ componentEventBus.emit('comp:action', {
 
 ```typescript
 function handleLinkAction(
-  actionConfig: HandleControlConfig,
-  row?: Recordable
+    actionConfig: HandleControlConfig,
+    row?: Recordable
 ): void
 ```
 
@@ -1808,46 +1867,46 @@ function handleLinkAction(
 const STORAGE_KEY = 'LINK_DYNAMIC_ROUTES';
 
 function handleLinkAction(actionConfig, row) {
-  // ... 解析 path 和 extraData ...
+    // ... 解析 path 和 extraData ...
 
-  if (!routeExists) {
-    const routeName = `Link_${resolvedPath.replace(/[/?&=#.]/g, '_')}`;
-    const serializedExtraData =
-      typeof extraData === 'object' ? JSON.stringify(extraData) : extraData;
-    const menuPath = currentActiveMenu || route.path;
+    if (!routeExists) {
+        const routeName = `Link_${resolvedPath.replace(/[/?&=#.]/g, '_')}`;
+        const serializedExtraData =
+            typeof extraData === 'object' ? JSON.stringify(extraData) : extraData;
+        const menuPath = currentActiveMenu || route.path;
 
-    // 1. 动态注册路由
-    router.addRoute({
-      path: '',
-      name: `${routeName}Parent`,
-      component: LAYOUT,
-      redirect: resolvedPath,
-      meta: { hideMenu: true, single: true, title: componentProps?.title || '' },
-      children: [{
-        path: resolvedPath,
-        name: routeName,
-        component: () => import('@/views/auto-render/index.vue'),
-        meta: {
-          extraData: serializedExtraData,
-          renderMode: RenderModeEnum.AUTO,
-          hideMenu: true,
-          title: componentProps?.title || '',
-          currentActiveMenu: menuPath,
-        },
-      }],
-    });
+        // 1. 动态注册路由
+        router.addRoute({
+            path: '',
+            name: `${routeName}Parent`,
+            component: LAYOUT,
+            redirect: resolvedPath,
+            meta: { hideMenu: true, single: true, title: componentProps?.title || '' },
+            children: [{
+                path: resolvedPath,
+                name: routeName,
+                component: () => import('@/views/auto-render/index.vue'),
+                meta: {
+                    extraData: serializedExtraData,
+                    renderMode: RenderModeEnum.AUTO,
+                    hideMenu: true,
+                    title: componentProps?.title || '',
+                    currentActiveMenu: menuPath,
+                },
+            }],
+        });
 
-    // 2. 持久化到 sessionStorage（刷新后可恢复）
-    const routes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
-    routes[resolvedPath] = {
-      extraData: serializedExtraData,
-      title: componentProps?.title,
-      currentActiveMenu: menuPath,
-    };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
-  }
+        // 2. 持久化到 sessionStorage（刷新后可恢复）
+        const routes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
+        routes[resolvedPath] = {
+            extraData: serializedExtraData,
+            title: componentProps?.title,
+            currentActiveMenu: menuPath,
+        };
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
+    }
 
-  // ... 跳转 ...
+    // ... 跳转 ...
 }
 ```
 
@@ -1903,9 +1962,9 @@ resolveExpression('普通文本', {});
 
 ```typescript
 function parseExpression(
-  expression: string | boolean | undefined | null,
-  context: TransformContext,
-  defaultValue: any = undefined  // 默认 undefined，而非 true
+    expression: string | boolean | undefined | null,
+    context: TransformContext,
+    defaultValue: any = undefined  // 默认 undefined，而非 true
 ): any
 ```
 
@@ -1959,8 +2018,8 @@ function createRequest(config: DataSourceConfig): (params?: Recordable) => Promi
 
 // 示例
 const apiFn = createRequest({
-  url: '/api/user/list',
-  method: 'post'
+    url: '/api/user/list',
+    method: 'post'
 });
 apiFn({ page: 1 }).then(res => { ... });
 ```
@@ -1971,9 +2030,9 @@ apiFn({ page: 1 }).then(res => { ... });
 
 ```typescript
 function mergeRequestParams(
-  params: Recordable,
-  extraParams: Array<{ paramsKey: string; valueKey: string; ifShow?: string }>,
-  context: TransformContext
+    params: Recordable,
+    extraParams: Array<{ paramsKey: string; valueKey: string; ifShow?: string }>,
+    context: TransformContext
 ): Recordable
 ```
 
@@ -2078,51 +2137,51 @@ router.beforeEach (createLinkGuard)
 
 ```typescript
 export function createLinkGuard(router: Router) {
-  router.beforeEach((to, from, next) => {
-    // 只有匹配到 404 路由时才检查
-    const isPageNotFound = to.matched.some((r) =>
-      r.name?.toString().startsWith(PAGE_NOT_FOUND_NAME),
-    );
-    if (!isPageNotFound) {
-      next();
-      return;
-    }
+    router.beforeEach((to, from, next) => {
+        // 只有匹配到 404 路由时才检查
+        const isPageNotFound = to.matched.some((r) =>
+            r.name?.toString().startsWith(PAGE_NOT_FOUND_NAME),
+        );
+        if (!isPageNotFound) {
+            next();
+            return;
+        }
 
-    // 从 sessionStorage 恢复路由配置
-    const storedRoutes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
-    const config = storedRoutes[to.path];
+        // 从 sessionStorage 恢复路由配置
+        const storedRoutes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
+        const config = storedRoutes[to.path];
 
-    if (!config) {
-      next();
-      return;
-    }
+        if (!config) {
+            next();
+            return;
+        }
 
-    // 动态注册路由（与 useLinkAction 相同的注册逻辑）
-    router.addRoute({
-      path: '',
-      name: `${routeName}Parent`,
-      component: LAYOUT,
-      redirect: to.path,
-      meta: { hideMenu: true, single: true, title: config?.title || '' },
-      children: [
-        {
-          path: to.path,
-          name: routeName,
-          component: () => import('@/views/auto-render/index.vue'),
-          meta: {
-            extraData: config?.extraData,
-            renderMode: 'AUTO',
-            hideMenu: true,
-            title: config?.title || '',
-            currentActiveMenu: config?.currentActiveMenu,
-          },
-        },
-      ],
+        // 动态注册路由（与 useLinkAction 相同的注册逻辑）
+        router.addRoute({
+            path: '',
+            name: `${routeName}Parent`,
+            component: LAYOUT,
+            redirect: to.path,
+            meta: { hideMenu: true, single: true, title: config?.title || '' },
+            children: [
+                {
+                    path: to.path,
+                    name: routeName,
+                    component: () => import('@/views/auto-render/index.vue'),
+                    meta: {
+                        extraData: config?.extraData,
+                        renderMode: 'AUTO',
+                        hideMenu: true,
+                        title: config?.title || '',
+                        currentActiveMenu: config?.currentActiveMenu,
+                    },
+                },
+            ],
+        });
+
+        // replace 触发路由重新匹配
+        next({ path: to.path, query: to.query, replace: true });
     });
-
-    // replace 触发路由重新匹配
-    next({ path: to.path, query: to.query, replace: true });
-  });
 }
 ```
 
@@ -2136,9 +2195,9 @@ const STORAGE_KEY = 'LINK_DYNAMIC_ROUTES';
 // 注册路由时保存配置
 const routes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
 routes[resolvedPath] = {
-  extraData: serializedExtraData,
-  title: componentProps?.title,
-  currentActiveMenu: menuPath,
+    extraData: serializedExtraData,
+    title: componentProps?.title,
+    currentActiveMenu: menuPath,
 };
 sessionStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
 ```
@@ -2151,8 +2210,8 @@ sessionStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
 import { createLinkGuard } from '@/components/PageRender/utils/linkGuard';
 
 export function createGuard(router: Router) {
-  createLinkGuard(router);
-  // ... 其他守卫
+    createLinkGuard(router);
+    // ... 其他守卫
 }
 ```
 
@@ -2598,9 +2657,9 @@ export function createGuard(router: Router) {
 
 ```typescript
 {
-  "disabled": (action) => {
-    return !selection.value?.tree?.id;
-  }
+    "disabled": (action) => {
+        return !selection.value?.tree?.id;
+    }
 }
 ```
 
