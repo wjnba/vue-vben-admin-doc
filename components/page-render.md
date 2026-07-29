@@ -37,10 +37,21 @@ PageRender/
 │   ├── YwtDrawer.vue          # 抽屉组件
 │   ├── YwtForm.vue            # 表单组件
 │   ├── YwtDescription.vue     # 详情描述组件
+│   ├── DescRenderer.vue       # 页面级副标题渲染组件
+│   ├── SelectionInfoBar.vue    # 选中数据展示条组件
 │   ├── Description/
 │   │   └── registerComp.ts    # 详情自定义组件注册入口
 │   ├── Form/
-│   │   └── registerComp.ts    # 表单组件注册入口
+│   │   ├── registerComp.ts    # 表单组件注册入口
+│   │   ├── YwtApiCheckboxGroup.vue
+│   │   ├── YwtApiMutiSelect.vue
+│   │   ├── YwtApiMutiTree.vue
+│   │   ├── YwtAreaCascader.vue
+│   │   ├── YwtCodeEditor.vue
+│   │   ├── YwtCropperAvatar.vue
+│   │   └── YwtMapSelect/
+│   │       ├── index.vue
+│   │       └── YwtMapDlg.vue
 │   └── Table/
 │       ├── CellStatusSwitch.vue  # 单元格状态开关组件
 │       ├── CellTag.vue           # 单元格标签组件
@@ -87,6 +98,7 @@ PageRenderConfig (配置对象)
 │  YwtModal    │      YwtDrawer         │
 │  - 弹窗表单  │  - 抽屉表单            │
 │  - 弹窗表格  │  - 抽屉表格            │
+│  - 弹窗详情  │  - 抽屉详情            │
 └──────────────┴────────────────────────┘
 ```
 
@@ -101,6 +113,8 @@ PageRenderConfig (配置对象)
 2. 解析并验证配置结构
 3. 提供 `selectionStore` 给子组件共享
 4. 渲染分类树和表格布局
+5. 自动渲染 `SelectionInfoBar` 选中数据展示条（有分类树且配置了 `selectionInfoBar` 时）
+6. 自动渲染页面级副标题（配置了 `desc` 时）
 
 ### 3.2 Props & 配置
 
@@ -109,19 +123,38 @@ PageRenderConfig (配置对象)
 ```typescript
 // 路由配置示例
 {
-    path: '/example',
-        component: () => import('@/views/PageRender.vue'),
-    meta: {
+  path: '/example',
+  component: () => import('@/views/PageRender.vue'),
+  meta: {
     renderMode: 'auto',
-        extraData: JSON.stringify({
-        categoryTreeConfig: { ... },
-        tableConfig: { ... }
+    extraData: JSON.stringify({
+      categoryTreeConfig: { ... },
+      tableConfig: { ... }
     })
-}
+  }
 }
 ```
 
-### 3.3 插槽系统
+### 3.3 对外暴露（defineExpose）
+
+组件通过 `defineExpose` 暴露以下方法和属性，父组件可通过 `ref` 调用：
+
+| 方法/属性 | 类型 | 说明 |
+|-----------|------|------|
+| `tabReload()` | `() => void` | 刷新当前表格 |
+| `getSelectionByKey(key)` | `(key: string) => Recordable` | 获取指定 key 的选中数据 |
+| `clearSelection(key?)` | `(key?: string) => void` | 清空选中数据，不传 key 则清空全部 |
+| `updateSelection(key, data)` | `(key: string, data: any) => void` | 更新指定 key 的选中数据 |
+| `selection` | `Reactive<Recordable>` | 当前所有选中数据的响应式对象 |
+
+### 3.4 头部按钮布局（showAction）
+
+头部操作按钮的位置会根据配置自动切换：
+
+- **单 tab + 无分类树**（`showAction = true`）：按钮渲染在 `PageContainer` 顶部 `#right` 插槽
+- **多 tab 或有分类树**（`showAction = false`）：按钮交由 YwtTable 在表格工具栏内渲染（`headActionSlotName` 自动选择 `form-formFooter` 或 `toolbar`）
+
+### 3.5 插槽系统
 
 支持**透传插槽**，允许父组件向子组件传递自定义内容：
 
@@ -131,7 +164,7 @@ PageRenderConfig (配置对象)
   <template #tree-header-actions="{ selection }">
     <Button>自定义按钮</Button>
   </template>
-
+  
   <!-- 传递给表格 name 列的插槽（详见 6.7） -->
   <template #tab1-cell-name="{ record }">
     <a>{{ record.name }}</a>
@@ -139,12 +172,86 @@ PageRenderConfig (配置对象)
 </PageRender>
 ```
 
-### 3.4 错误处理
+### 3.6 错误处理
 
 配置解析失败时显示错误提示：
 - 解析方式（renderMode）
 - 错误信息
 - 检查提示
+
+### 3.7 页面级副标题
+
+通过 `desc` 配置可在页面顶部渲染副标题信息，支持 `${}` 表达式和指定字段高亮：
+
+```json
+{
+  "categoryTreeConfig": { ... },
+  "tableConfig": { ... },
+  "desc": {
+    "template": "机构名称：${orgName}，已签约人数：<b>${signCount}</b> 人",
+    "highlightFields": {
+      "signCount": "font-bold !text-primary"
+    },
+    "dataSource": {
+      "initSetting": {
+        "url": "/api/org/statistics"
+      }
+    }
+  }
+}
+```
+
+**参数说明**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `template` | `string` | 模板字符串，支持 `${变量名}` 占位符和内联 HTML 标签 |
+| `highlightFields` | `Record<string, string>` | 指定哪些 `${字段}` 需要高亮，值为 UnoCSS 类名 |
+| `dataSource.initSetting` | `DataSourceConfig` | 可选的数据源配置，用于从 API 获取数据填充模板 |
+| `staticData` | `Recordable` | 静态数据，与 API 返回数据合并（API 数据优先级更高） |
+
+**工作机制**：
+1. 如果配置了 `dataSource.initSetting`，自动发起 API 请求获取数据
+2. 合并 `staticData` 和 API 数据作为模板上下文
+3. 将模板中的 `${变量名}` 替换为实际值
+4. 对 `highlightFields` 中指定的字段自动包裹 `<b class="...">` 标签
+5. 支持通过事件总线 `comp:action` 触发 `reload` 刷新数据
+
+### 3.8 选中数据展示条
+
+当 `categoryTreeConfig` 配置了 `selectionInfoBar` 时，会在右侧表格区域顶部自动渲染选中数据展示条，用于醒目地展示当前选中节点的信息。
+
+```json
+{
+  "categoryTreeConfig": {
+    "key": "orgTree",
+    "selectionInfoBar": {
+      "label": "当前目标机构：",
+      "text": "${selection.orgTree.title}",
+      "placeholder": "请先选择机构",
+      "ifShow": "!!selection.orgTree"
+    }
+  }
+}
+```
+
+**参数说明**：
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `label` | `string` | 否 | `'当前目标机构：'` | 显示的标签文本 |
+| `icon` | `string` | 否 | `'ant-design:environment-outlined'` | 图标名称（iconify 图标） |
+| `text` | `string` | 否 | — | 文本表达式，如 `${selection.orgTree.title}`，通过 `resolveExpression` + `buildContext()` 解析 |
+| `placeholder` | `string` | 否 | `'—'` | 无选中数据时的占位文本 |
+| `ifShow` | `string` | 否 | — | 显示条件表达式，如 `"!!selection.orgTree"`，通过 `parseExpression` + `buildContext()` 解析，不传则配置了 `selectionInfoBar` 即显示 |
+
+**默认值**：`label`、`icon`、`placeholder` 的默认值维护在 `SelectionInfoBar.vue` 组件的 `withDefaults` 中，不在 `index.vue` 层重复设置。
+
+**外部独立使用**：组件本身是纯 props 驱动，不依赖 inject，可直接在其他页面使用：
+
+```vue
+<SelectionInfoBar label="当前机构" :text="orgName" />
+```
 
 ---
 
@@ -156,20 +263,20 @@ PageRenderConfig (配置对象)
 
 ```typescript
 interface DataSourceConfig {
-    url?: string;                              // 请求地址
-    method?: 'get' | 'post' | 'put' | 'delete'; // 请求方法
-    params?: Recordable;                       // 固定参数
-    extraParams?: Array<{                      // 动态参数映射
-        paramsKey: string;   // 请求参数名
-        valueKey: string;    // 值来源路径（支持 ${} 表达式）
-    }>;
-    getChild?: DataSourceConfig;               // 获取子级数据（树形表格）
-    requestOptions?: {
-        dictTransform?: Recordable;              // 字典转换
-    };
-    labelField?: string;                       // 标签字段名
-    valueField?: string;                       // 值字段名
-    childrenField?: string;                    // 子级字段名
+  url?: string;                              // 请求地址
+  method?: 'get' | 'post' | 'put' | 'delete'; // 请求方法
+  params?: Recordable;                       // 固定参数
+  extraParams?: Array<{                      // 动态参数映射
+    paramsKey: string;   // 请求参数名
+    valueKey: string;    // 值来源路径（支持 ${} 表达式）
+  }>;
+  getChild?: DataSourceConfig;               // 获取子级数据（树形表格）
+  requestOptions?: {
+    dictTransform?: Recordable;              // 字典转换
+  };
+  labelField?: string;                       // 标签字段名
+  valueField?: string;                       // 值字段名
+  childrenField?: string;                    // 子级字段名
 }
 ```
 
@@ -177,14 +284,14 @@ interface DataSourceConfig {
 
 ```typescript
 interface HandleControlConfig {
-    component: string;                          // 交互组件类型：Popconfirm | YwtModal | YwtDrawer | Link
-    componentProps?: Recordable;                // 组件属性
-    slotComponent?: string;                     // 内部插槽组件：YwtForm | YwtTable
-    slotComponentProps?: Recordable;            // 插槽组件属性
-    dataSource?: {
-        initSetting?: DataSourceConfig;           // 初始化数据请求
-        updateSetting?: DataSourceConfig;         // 更新数据请求
-    };
+  component: string;                          // 交互组件类型：Popconfirm | YwtModal | YwtDrawer | Link
+  componentProps?: Recordable;                // 组件属性
+  slotComponent?: string;                     // 内部插槽组件：YwtForm | YwtTable
+  slotComponentProps?: Recordable;            // 插槽组件属性
+  dataSource?: {
+    initSetting?: DataSourceConfig;           // 初始化数据请求
+    updateSetting?: DataSourceConfig;         // 更新数据请求
+  };
 }
 ```
 
@@ -200,13 +307,13 @@ interface HandleControlConfig {
 
 ```typescript
 interface ActionConfig {
-    label: string;                    // 按钮文本（支持 ${} 表达式）
-    key: string;                      // 唯一标识
-    type?: 'primary' | 'warning' | 'danger' | 'success' | 'default';
-    icon?: string;                    // 图标（转换为 preIcon）
-    className?: string;               // 自定义类名
-    handleControl?: HandleControlConfig; // 交互控制
-    disabled?: boolean | string;      // 禁用状态（支持表达式）
+  label: string;                    // 按钮文本（支持 ${} 表达式）
+  key: string;                      // 唯一标识
+  type?: 'primary' | 'warning' | 'danger' | 'success' | 'default';
+  icon?: string;                    // 图标（转换为 preIcon）
+  className?: string;               // 自定义类名
+  handleControl?: HandleControlConfig; // 交互控制
+  disabled?: boolean | string;      // 禁用状态（支持表达式）
 }
 ```
 
@@ -214,10 +321,10 @@ interface ActionConfig {
 
 ```typescript
 interface CellActionConfig extends Omit<ActionItem, 'ifShow' | 'disabled'> {
-    key: string;
-    handleControl?: HandleControlConfig;
-    disabled?: boolean | string | ((action: CellActionConfig) => boolean);
-    ifShow?: boolean | string | ((action: CellActionConfig) => boolean);
+  key: string;
+  handleControl?: HandleControlConfig;
+  disabled?: boolean | string | ((action: CellActionConfig) => boolean);
+  ifShow?: boolean | string | ((action: CellActionConfig) => boolean);
 }
 ```
 
@@ -225,25 +332,25 @@ interface CellActionConfig extends Omit<ActionItem, 'ifShow' | 'disabled'> {
 
 ```typescript
 interface TableTabConfig {
-    key: string;                              // 标签页唯一标识
-    label: string;                            // 标签文本
-    icon?: string;                            // 图标
-    disabled?: boolean;                       // 是否禁用
-    showCount?: number;                       // 是否显示数量
-    count?: number;                           // 数量值
-    dataSource?: {
-        initSetting?: DataSourceConfig;         // 初始化数据请求
-        updateSetting?: DataSourceConfig;       // 更新数据请求
+  key: string;                              // 标签页唯一标识
+  label: string;                            // 标签文本
+  icon?: string;                            // 图标
+  disabled?: boolean;                       // 是否禁用
+  showCount?: number;                       // 是否显示数量
+  count?: number;                           // 数量值
+  dataSource?: {
+    initSetting?: DataSourceConfig;         // 初始化数据请求
+    updateSetting?: DataSourceConfig;       // 更新数据请求
+  };
+  headerActions?: ActionConfig[];           // 头部操作按钮
+  cellActions?: CellActionConfig[];         // 行操作按钮
+  componentProps?: {
+    columns?: BasicColumn[];                // 列配置
+    formConfig?: {
+      schemas?: FormSchema[];               // 表单配置
     };
-    headerActions?: ActionConfig[];           // 头部操作按钮
-    cellActions?: CellActionConfig[];         // 行操作按钮
-    componentProps?: {
-        columns?: BasicColumn[];                // 列配置
-        formConfig?: {
-            schemas?: FormSchema[];               // 表单配置
-        };
-        actionColumn?: Recordable;              // 操作列配置
-    };
+    actionColumn?: Recordable;              // 操作列配置
+  };
 }
 ```
 
@@ -251,14 +358,20 @@ interface TableTabConfig {
 
 ```typescript
 interface CategoryTreeConfig {
-    key: string;                              // 树组件标识
-    title?: string;                           // 树标题
-    headerActions?: ActionConfig[];           // 头部操作按钮
-    cellActions?: ActionConfig[];             // 节点操作按钮
-    dataSource?: {
-        initSetting?: DataSourceConfig;         // 初始化数据请求
-        updateSetting?: DataSourceConfig;       // 更新数据请求
-    };
+  key: string;                              // 树组件标识
+  title?: string;                           // 树标题
+  icon?: string;                            // 树标题图标
+  headerActions?: ActionConfig[];           // 头部操作按钮
+  cellActions?: ActionConfig[];             // 节点操作按钮
+  badgeConfig?: {                           // 角标配置
+    text: string;                           // 角标文案表达式，如 "${rowData.pendingCount}"
+    ifShow?: string;                        // 显示条件表达式，如 "rowData.pendingCount > 0"
+  };
+  selectionInfoBar?: SelectionInfoBarConfig; // 选中数据展示条，树节点选中后在右侧顶部显示当前选中信息
+  dataSource?: {
+    initSetting?: DataSourceConfig;         // 初始化数据请求
+    updateSetting?: DataSourceConfig;       // 更新数据请求
+  };
 }
 ```
 
@@ -266,14 +379,62 @@ interface CategoryTreeConfig {
 
 ```typescript
 interface TransformContext {
-    route?: Recordable;     // 路由信息
-    rowData?: Recordable;   // 行数据
-    formData?: Recordable;  // 表单数据
-    selection?: Recordable; // 选中数据
-    userInfo?: Recordable;  // 当前用户信息（来自 userStore.getUserInfo）
-    [key: string]: any;
+  route?: Recordable;     // 路由信息
+  rowData?: Recordable;   // 行数据
+  formData?: Recordable;  // 表单数据
+  selection?: Recordable; // 选中数据
+  userInfo?: Recordable;  // 当前用户信息（来自 userStore.getUserInfo）
+  [key: string]: any;
 }
 ```
+
+#### DescConfig - 页面级副标题配置
+
+```typescript
+interface DescConfig {
+  template: string;                              // 模板字符串，支持 ${变量名} 占位符和内联 HTML
+  highlightFields?: Record<string, string>;       // 高亮字段配置，字段名 -> UnoCSS 类名
+  dataSource?: {
+    initSetting?: DataSourceConfig;               // 数据源配置
+  };
+  staticData?: Recordable;                        // 静态数据（与 dataSource 返回数据合并）
+}
+```
+
+详见 [3.7 页面级副标题](#37-页面级副标题)。
+
+#### TableConfig - 表格配置
+
+```typescript
+interface TableConfig {
+  defaultActive?: string;  // 默认激活的标签页 key
+  tabs: TableTabConfig[];  // 标签页配置数组
+}
+```
+
+#### PageRenderConfig - 页面渲染配置
+
+```typescript
+interface PageRenderConfig {
+  categoryTreeConfig?: CategoryTreeConfig;
+  tableConfig?: TableConfig;
+  desc?: DescConfig;                            // 页面级副标题
+}
+```
+
+#### SelectionInfoBarConfig - 选中数据展示条配置
+
+```typescript
+interface SelectionInfoBarConfig {
+  label?: string;       // 显示的标签文本，默认 "当前目标机构："
+  icon?: string;        // 图标名称（iconify 图标），默认 "ant-design:environment-outlined"
+  text?: string;        // 文本表达式，如 "${selection.orgTree.title}"，支持 resolveExpression
+  placeholder?: string; // 无选中数据时的占位文本，默认 "—"
+  ifShow?: string;      // 显示条件表达式，如 "!!selection.orgTree"，不传则始终显示
+}
+```
+
+详见 [3.8 选中数据展示条](#38-选中数据展示条)。
 
 #### MergeCellConfig - 合并单元格配置
 
@@ -307,7 +468,22 @@ interface Props {
 }
 ```
 
-### 5.3 数据转换
+**默认值**：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `title` | `'分类管理'` | 树标题 |
+| `icon` | `'ant-design:folder-open-outlined'` | 树标题图标 |
+
+### 5.3 内置弹窗/抽屉
+
+CategoryTree 内部集成了 `YwtModal` 和 `YwtDrawer`，根据 `handleControl.component` 自动选择：
+- `Popconfirm`：确认对话框（如删除操作）
+- `YwtModal`：弹窗表单/表格
+- `YwtDrawer`：抽屉表单/表格
+- `Link`：页面跳转
+
+### 5.4 数据转换
 
 树数据会自动转换为 BasicTree 所需格式：
 
@@ -330,7 +506,7 @@ interface Props {
 }
 ```
 
-### 5.4 节点操作按钮
+### 5.5 节点操作按钮
 
 支持四种交互方式：
 
@@ -405,11 +581,54 @@ interface Props {
 }
 ```
 
-### 5.5 事件
+### 5.6 节点角标
+
+分类树节点支持通过 `badgeConfig` 在节点标题右侧显示角标，常用于展示待审核数量、未读数等统计信息。
+
+**配置方式**：
+
+```json
+{
+  "categoryTreeConfig": {
+    "key": "tree",
+    "badgeConfig": {
+      "text": "${rowData.pendingCount}",
+      "ifShow": "rowData.pendingCount > 0"
+    }
+  }
+}
+```
+
+**参数说明**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `text` | `string` | 是 | 角标文案表达式，支持 `${}` 表达式和 `resolveExpression` |
+| `ifShow` | `string` | 否 | 显示条件表达式，不传则 `text` 解析后有值就显示 |
+
+**渲染效果**：角标以红色数字胶囊样式显示在节点标题右侧。通过 `{treeKey}-node-badge` 插槽覆盖默认渲染（见 [5.8 插槽](#58-插槽)）。
+
+### 5.8 插槽
+
+分类树组件提供以下命名插槽：
+
+| 插槽名 | 作用域数据 | 说明 |
+|--------|-----------|------|
+| `{treeKey}-header-actions` | 无 | 在头部按钮区域追加自定义内容 |
+| `{treeKey}-cell-actions` | `{ rowData }` | 自定义节点操作区域的渲染 |
+| `{treeKey}-node-badge` | `{ rowData }` | 自定义节点角标的渲染，覆盖 `badgeConfig` 默认渲染 |
+
+> 插件名中的 `{treeKey}` 对应配置中的 `CategoryTreeConfig.key`。
+
+### 5.9 选中状态通知
+
+节点选中时自动调用 `updateSelection(treeKey, selectedNode)` 更新 selectionStore，供表格等兄弟组件通过 `${selection.tree.id}` 表达式感知选中变化。
+
+### 5.6 事件
 
 - `@select(node)`：节点选中事件，返回选中的节点数据
 
-### 5.6 事件总线集成
+### 5.7 事件总线集成
 
 分类树组件使用 `useComponentAction` 自动监听 `comp:action` 事件：
 
@@ -444,16 +663,21 @@ componentEventBus.emit('comp:action', {
 
 ```typescript
 interface Props {
-  tableConfig: TableConfig;
-}
-
-interface TableConfig {
-  defaultActive?: string;  // 默认激活的标签页 key
-  tabs: TableTabConfig[];  // 标签页配置数组
+  config: TableConfig;                     // 表格配置（必填）
+  headActionsInTable?: boolean;            // 头部按钮是否在表格内渲染，默认 true
 }
 ```
 
-### 6.3 标签页配置
+> `headActionsInTable` 为 `true` 时，头部操作按钮插入表格工具栏 `form-formFooter` 或 `toolbar` 插槽；
+> 为 `false` 时（即单 tab + 无分类树场景），按钮在 `index.vue` 的 `PageContainer#right` 插槽中渲染。
+
+### 6.3 对外暴露（defineExpose）
+
+```typescript
+defineExpose({ reload });  // reload: () => void — 刷新当前表格
+```
+
+### 6.4 标签页配置
 
 ```json
 {
@@ -519,7 +743,7 @@ interface TableConfig {
 }
 ```
 
-### 6.4 列配置增强
+### 6.5 列配置增强
 
 #### ifShow - 条件显示
 
@@ -637,7 +861,7 @@ interface TableConfig {
 > - `mergeCell` 与 `component`（自定义组件）互斥，组件列优先
 > - 排序、筛选后会自动重新计算合并范围
 
-### 6.5 行操作按钮
+### 6.6 行操作按钮
 
 支持三种状态：
 - **actions**：显示在操作列的按钮（最多 2 个）
@@ -649,7 +873,7 @@ interface TableConfig {
 3. **YwtDrawer**：打开抽屉
 4. **Link**：页面跳转（外部链接或内部路由）
 
-### 6.6 树形表格展开
+### 6.7 树形表格展开
 
 支持懒加载子级数据：
 
@@ -670,7 +894,7 @@ interface TableConfig {
 }
 ```
 
-### 6.7 插槽系统
+### 6.8 插槽系统
 
 表格组件提供 3 类插槽，均以 `{tabKey}` 作为命名空间前缀，支持为每个标签页独立定制。
 
@@ -813,34 +1037,51 @@ interface TableConfig {
 
 ```typescript
 interface Props {
-    config: {
-        key: string;                          // 表单标识
-        triggerActions?: Array<{              // 触发刷新动作
-            type: string;
-            targetKeys: string[];
-        }>;
-        dataSource?: {
-            initSetting?: DataSourceConfig;     // 初始化数据请求
-            updateSetting?: DataSourceConfig;   // 更新数据请求
-        };
-        // BasicForm 的其他配置
-        schemas?: FormSchema[];
-        labelWidth?: number;
-        ...
+  config: {
+    key: string;                          // 表单标识
+    triggerActions?: Array<{              // 触发刷新动作
+      type: string;
+      targetKeys: string[];
+    }>;
+    dataSource?: {
+      initSetting?: DataSourceConfig;     // 初始化数据请求
+      updateSetting?: DataSourceConfig;   // 更新数据请求
     };
-    rowData?: Recordable;  // 行数据（用于编辑场景）
+    // BasicForm 的其他配置
+    schemas?: FormSchema[];
+    labelWidth?: number;
+    ...
+  };
+  rowData?: Recordable;  // 行数据（用于编辑场景）
 }
 ```
 
-### 7.3 表单 Schema 转换
+> `rowData` 是独立的 prop，不在 `config` 内部。
+
+**表单默认配置**：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `layout` | `'vertical'` | 表单布局方式 |
+| `showActionButtonGroup` | `false` | 隐藏表单自带的操作按钮组 |
+
+### 7.3 对外暴露（defineExpose）
+
+```typescript
+defineExpose({ handleOk });  // handleOk: () => Promise<void> — 验证并提交表单
+```
+
+YwtModal / YwtDrawer 通过 ref 调用此方法来执行表单提交流程。
+
+### 7.4 表单 Schema 转换
 
 #### show - 条件显示
 
 ```typescript
 {
-    "field": "name",
-        "component": "Input",
-        "show": "${formData.type === 1}"
+  "field": "name",
+  "component": "Input",
+  "show": "${formData.type === 1}"
 }
 ```
 
@@ -848,9 +1089,9 @@ interface Props {
 
 ```typescript
 {
-    "field": "age",
-        "component": "InputNumber",
-        "ifShow": "${formData.hasAge === true}"
+  "field": "age",
+  "component": "InputNumber",
+  "ifShow": "${formData.hasAge === true}"
 }
 ```
 
@@ -858,9 +1099,9 @@ interface Props {
 
 ```typescript
 {
-    "field": "email",
-        "component": "Input",
-        "dynamicDisabled": "${formData.locked === true}"
+  "field": "email",
+  "component": "Input",
+  "dynamicDisabled": "${formData.locked === true}"
 }
 ```
 
@@ -876,18 +1117,18 @@ interface Props {
 
 ```typescript
 {
-    "field": "categoryId",
-        "component": "ApiSelect",
-        "componentProps": {
-        "dataSource": {
-            "initSetting": {
-                "url": "/api/category/list",
-                    "extraParams": [
-                    { "paramsKey": "parentId", "valueKey": "${formData.parentId}" }
-                ]
-            }
-        }
+  "field": "categoryId",
+  "component": "ApiSelect",
+  "componentProps": {
+    "dataSource": {
+      "initSetting": {
+        "url": "/api/category/list",
+        "extraParams": [
+          { "paramsKey": "parentId", "valueKey": "${formData.parentId}" }
+        ]
+      }
     }
+  }
 }
 ```
 
@@ -895,13 +1136,13 @@ interface Props {
 
 ```typescript
 {
-    "field": "subCategoryId",
-        "component": "ApiSelect",
-        "clearBy": ["categoryId"]  // 当 categoryId 变化时清空 subCategoryId
+  "field": "subCategoryId",
+  "component": "ApiSelect",
+  "clearBy": ["categoryId"]  // 当 categoryId 变化时清空 subCategoryId
 }
 ```
 
-### 7.4 数据初始化
+### 7.5 数据初始化
 
 表单加载时自动请求数据：
 
@@ -909,40 +1150,40 @@ interface Props {
 2. **rowData**：传入的行数据
 3. 合并后设置为表单初始值
 
-### 7.5 表单提交
+### 7.6 表单提交
 
 ```typescript
 async function handleOk() {
-    // 1. 验证表单
-    const values = await validate();
-
-    // 2. 合并参数
-    const params = mergeRequestParams(
-        { ...values, ...(updateSetting?.params || {}) },
-        updateSetting?.extraParams || [],
-        {
-            rowData: props.rowData,
-            formData: values,
-        }
-    );
-
-    // 3. 发送请求
-    const apiFn = createRequest(updateSetting || {});
-    return apiFn(params).then((res) => {
-        message.success(res?.message || '操作成功');
-
-        // 4. 触发刷新动作
-        triggerActions.value.forEach((act) => {
-            componentEventBus.emit('comp:action', {
-                action: act.type,
-                targetKeys: act.targetKeys,
-            });
-        });
+  // 1. 验证表单
+  const values = await validate();
+  
+  // 2. 合并参数
+  const params = mergeRequestParams(
+    { ...values, ...(updateSetting?.params || {}) },
+    updateSetting?.extraParams || [],
+    {
+      rowData: props.rowData,
+      formData: values,
+    }
+  );
+  
+  // 3. 发送请求
+  const apiFn = createRequest(updateSetting || {});
+  return apiFn(params).then((res) => {
+    message.success(res?.message || '操作成功');
+    
+    // 4. 触发刷新动作
+    triggerActions.value.forEach((act) => {
+      componentEventBus.emit('comp:action', {
+        action: act.type,
+        targetKeys: act.targetKeys,
+      });
     });
+  });
 }
 ```
 
-### 7.6 插槽系统
+### 7.7 插槽系统
 
 支持自定义表单项渲染：
 
@@ -953,6 +1194,41 @@ async function handleOk() {
     <Input v-model:value="model[schema.field]" placeholder="请输入用户名" />
   </template>
 </YwtForm>
+```
+
+### 7.8 已注册的表单组件
+
+通过 `Form/registerComp.ts` 注册的自定义表单组件，可在 JSON 配置的 `component` 字段直接使用：
+
+| 组件名 | 说明 | 适用场景 |
+|--------|------|---------|
+| `YwtApiMutiSelect` | API 多选下拉 | 从 API 加载选项的多选下拉框 |
+| `YwtApiMutiTree` | API 多选树 | 从 API 加载树形数据的多选组件 |
+| `YwtAreaCascader` | 区域级联选择器 | 省/市/区级联选择 |
+| `YwtMapSelect` | 地图选点 | 在地图上选择位置坐标 |
+| `YwtCodeEditor` | 代码编辑器 | JSON/代码编辑输入 |
+| `YwtApiCheckboxGroup` | API 多选框组 | 从 API 加载选项的 Checkbox 组 |
+| `YwtCropperAvatar` | 头像裁剪 | 图片裁剪上传组件 |
+
+使用示例：
+
+```json
+{
+  "field": "areaCode",
+  "label": "所属区域",
+  "component": "YwtAreaCascader",
+  "required": true
+}
+{
+  "field": "position",
+  "label": "地理位置",
+  "component": "YwtMapSelect"
+}
+{
+  "field": "templateConfig",
+  "label": "模板配置",
+  "component": "YwtCodeEditor"
+}
 ```
 
 ---
@@ -973,8 +1249,8 @@ async function handleOk() {
 
 ```typescript
 {
-    actionConfig: HandleControlConfig;  // 操作配置
-    row?: Recordable;                    // 行数据
+  actionConfig: HandleControlConfig;  // 操作配置
+  row?: Recordable;                    // 行数据
 }
 ```
 
@@ -982,8 +1258,9 @@ async function handleOk() {
 
 ```typescript
 const componentsMap = {
-    YwtForm,   // 表单组件
-    YwtTable,  // 表格组件
+  YwtForm,         // 表单组件
+  YwtTable,        // 表格组件
+  YwtDescription,  // 详情描述组件
 };
 ```
 
@@ -1018,7 +1295,7 @@ const componentsMap = {
 
 ### 9.1 功能特性
 
-与 YwtModal 类似，区别在于：
+与 YwtModal 类似，同样支持 `YwtForm`、`YwtTable`、`YwtDescription` 三种内部组件，区别在于：
 - 使用抽屉形式展示
 - 默认宽度 800px
 - 支持 `placement` 配置（默认 `right`）
@@ -1056,24 +1333,24 @@ const componentsMap = {
 
 ```typescript
 interface Props {
-    record?: Recordable;                    // 行数据
-    triggerActions?: Array<{                // 触发刷新动作
-        type: string;
-        targetKeys: string[];
-    }>;
-    dataSource?: {                          // 数据源配置
-        updateSetting?: {
-            enableUrl?: string;                 // 启用状态的请求地址
-            disabledUrl?: string;               // 停用状态的请求地址
-            method?: string;
-            params?: Recordable;
-            extraParams?: Array<{
-                paramsKey: string;
-                valueKey: string;
-            }>;
-        };
+  record?: Recordable;                    // 行数据
+  triggerActions?: Array<{                // 触发刷新动作
+    type: string;
+    targetKeys: string[];
+  }>;
+  dataSource?: {                          // 数据源配置
+    updateSetting?: {
+      enableUrl?: string;                 // 启用状态的请求地址
+      disabledUrl?: string;               // 停用状态的请求地址
+      method?: string;
+      params?: Recordable;
+      extraParams?: Array<{
+        paramsKey: string;
+        valueKey: string;
+      }>;
     };
-    disabled?: string;                      // 禁用表达式（如 "${rowData.locked}"）
+  };
+  disabled?: string;                      // 禁用表达式（如 "${rowData.locked}"）
 }
 ```
 
@@ -1081,24 +1358,24 @@ interface Props {
 
 ```typescript
 {
-    "dataIndex": "status",
-        "component": "CellStatusSwitch",
-        "bindField": "status",
-        "triggerActions": [
-        { "type": "reload", "targetKeys": ["tab1"] }
-    ],
-        "componentProps": {
-        "dataSource": {
-            "updateSetting": {
-                "enableUrl": "/api/enable",
-                    "disabledUrl": "/api/disable",
-                    "extraParams": [
-                    { "paramsKey": "id", "valueKey": "${rowData.id}" }
-                ]
-            }
-        },
-        "disabled": "${rowData.locked === true}"
-    }
+  "dataIndex": "status",
+  "component": "CellStatusSwitch",
+  "bindField": "status",
+  "triggerActions": [
+    { "type": "reload", "targetKeys": ["tab1"] }
+  ],
+  "componentProps": {
+    "dataSource": {
+      "updateSetting": {
+        "enableUrl": "/api/enable",
+        "disabledUrl": "/api/disable",
+        "extraParams": [
+          { "paramsKey": "id", "valueKey": "${rowData.id}" }
+        ]
+      }
+    },
+    "disabled": "${rowData.locked === true}"
+  }
 }
 ```
 
@@ -1117,15 +1394,15 @@ interface Props {
 
 ```typescript
 interface MapOption {
-    label: string;                // 显示文本
-    value: string | number | boolean; // 匹配值
-    color?: string;              // 标签颜色（可选，自动分配）
+  label: string;                // 显示文本
+  value: string | number | boolean; // 匹配值
+  color?: string;              // 标签颜色（可选，自动分配）
 }
 
 interface Props {
-    record?: Recordable;          // 行数据
-    mapOption?: MapOption[];      // 值映射配置
-    format?: string;              // 格式化表达式（当无映射匹配时使用）
+  record?: Recordable;          // 行数据
+  mapOption?: MapOption[];      // 值映射配置
+  format?: string;              // 格式化表达式（当无映射匹配时使用）
 }
 ```
 
@@ -1133,15 +1410,15 @@ interface Props {
 
 ```typescript
 {
-    "dataIndex": "status",
-        "component": "CellTag",
-        "bindField": "status",
-        "componentProps": {
-        "mapOption": [
-            { "label": "已启用", "value": 1, "color": "green" },
-            { "label": "已停用", "value": 0, "color": "red" }
-        ]
-    }
+  "dataIndex": "status",
+  "component": "CellTag",
+  "bindField": "status",
+  "componentProps": {
+    "mapOption": [
+      { "label": "已启用", "value": 1, "color": "green" },
+      { "label": "已停用", "value": 0, "color": "red" }
+    ]
+  }
 }
 ```
 
@@ -1169,34 +1446,34 @@ interface Props {
 
 ```typescript
 interface Props {
-    config: {
-        key: string;                          // 组件唯一标识
-        schema: Array<{                       // 详情项配置
-            field: string;                      // 数据字段路径
-            label: string;                      // 显示标签
-            span?: number;                      // 合并列数
-            labelMinWidth?: number;             // 标签最小宽度
-            contentMinWidth?: number;           // 内容最小宽度
-            show?: string;                      // 条件显示表达式（如 "${rowData.status !== '0'}"）
-            component?: string;                 // 自定义组件名（如 "CellTag"、"CellCopyText"）
-            componentProps?: Recordable;        // 自定义组件属性
-            format?: string;                    // 格式化表达式（自定义组件时使用）
-        }>;
-        dataSource?: {
-            initSetting?: DataSourceConfig;     // 初始化数据请求
-        };
-        triggerActions?: Array<{              // 触发刷新动作
-            type: string;
-            targetKeys: string[];
-        }>;
-        title?: string;                       // 标题
-        useCollapse?: boolean;                // 是否使用折叠容器
-        column?: number | Recordable;         // 列数
-        bordered?: boolean;                   // 是否显示边框
-        size?: 'small' | 'default' | 'middle';// 尺寸
-        collapseOptions?: Recordable;         // 折叠容器配置
+  config: {
+    key: string;                          // 组件唯一标识
+    schema: Array<{                       // 详情项配置
+      field: string;                      // 数据字段路径
+      label: string;                      // 显示标签
+      span?: number;                      // 合并列数
+      labelMinWidth?: number;             // 标签最小宽度
+      contentMinWidth?: number;           // 内容最小宽度
+      show?: string;                      // 条件显示表达式（如 "${rowData.status !== '0'}"）
+      component?: string;                 // 自定义组件名（如 "CellTag"、"CellCopyText"）
+      componentProps?: Recordable;        // 自定义组件属性
+      format?: string;                    // 格式化表达式（自定义组件时使用）
+    }>;
+    dataSource?: {
+      initSetting?: DataSourceConfig;     // 初始化数据请求
     };
-    rowData?: Recordable;  // 行数据
+    triggerActions?: Array<{              // 触发刷新动作
+      type: string;
+      targetKeys: string[];
+    }>;
+    title?: string;                       // 标题
+    useCollapse?: boolean;                // 是否使用折叠容器
+    column?: number | Recordable;         // 列数
+    bordered?: boolean;                   // 是否显示边框
+    size?: 'small' | 'default' | 'middle';// 尺寸
+    collapseOptions?: Recordable;         // 折叠容器配置
+  };
+  rowData?: Recordable;  // 行数据
 }
 ```
 
@@ -1206,15 +1483,15 @@ interface Props {
 
 ```typescript
 {
-    "field": "name",           // 数据字段，支持 lodash get 路径
-        "label": "姓名",           // 显示标签
-        "span": 1,                 // 合并列数（可选）
-        "labelMinWidth": 100,      // 标签最小宽度（可选）
-        "contentMinWidth": 200,    // 内容最小宽度（可选）
-        "show": "${rowData.status !== '0'}", // 条件显示（可选，${} 表达式）
-        "component": "CellTag",    // 自定义组件（可选）
-        "componentProps": {...},   // 组件属性（可选）
-    "format": "..."            // 格式化表达式（可选，组件内使用）
+  "field": "name",           // 数据字段，支持 lodash get 路径
+  "label": "姓名",           // 显示标签
+  "span": 1,                 // 合并列数（可选）
+  "labelMinWidth": 100,      // 标签最小宽度（可选）
+  "contentMinWidth": 200,    // 内容最小宽度（可选）
+  "show": "${rowData.status !== '0'}", // 条件显示（可选，${} 表达式）
+  "component": "CellTag",    // 自定义组件（可选）
+  "componentProps": {...},   // 组件属性（可选）
+  "format": "..."            // 格式化表达式（可选，组件内使用）
 }
 ```
 
@@ -1224,9 +1501,9 @@ interface Props {
 
 ```typescript
 {
-    "field": "approver",
-        "label": "审批人",
-        "show": "${rowData.status === '1'}"
+  "field": "approver",
+  "label": "审批人",
+  "show": "${rowData.status === '1'}"
 }
 ```
 
@@ -1238,19 +1515,18 @@ interface Props {
 |--------|------|------|
 | `CellTag` | 状态标签（支持颜色映射） | `Table/CellTag.vue` |
 | `CellCopyText` | 复制文本 | `Table/CellCopyText.vue` |
-| `CellStatusSwitch` | 状态开关 | `Table/CellStatusSwitch.vue` |
 
 ```typescript
 {
-    "field": "status",
-        "label": "状态",
-        "component": "CellTag",
-        "componentProps": {
-        "mapOption": [
-            { "label": "启用", "value": "1", "color": "green" },
-            { "label": "禁用", "value": "0", "color": "red" }
-        ]
-    }
+  "field": "status",
+  "label": "状态",
+  "component": "CellTag",
+  "componentProps": {
+    "mapOption": [
+      { "label": "启用", "value": "1", "color": "green" },
+      { "label": "禁用", "value": "0", "color": "red" }
+    ]
+  }
 }
 ```
 
@@ -1290,15 +1566,15 @@ props.config (JSON 配置)
 
 ### 12.6 插槽系统
 
-提供三类插槽，均以 `{key}-desc-` 为命名空间前缀。
+提供三类插槽，均以 `{key}-descItem-` 为命名空间前缀。
 
-#### 字段自定义渲染（`{key}-desc-{field}`）
+#### 字段自定义渲染（`{key}-descItem-{field}`）
 
 当自定义组件无法满足需求时，可通过命名插槽完全自定义某个详情项的渲染：
 
 ```vue
 <PageRender>
-  <template #userDetail-desc-status="{ value, data }">
+  <template #userDetail-descItem-status="{ value, data }">
     <a-tag :color="value === '1' ? 'green' : 'red'">
       {{ value === '1' ? '启用' : '禁用' }}
     </a-tag>
@@ -1306,28 +1582,28 @@ props.config (JSON 配置)
 </PageRender>
 ```
 
-> 插槽名格式：`{config.key}-desc-{schema.field}`
+> 插槽名格式：`{config.key}-descItem-{schema.field}`
 > 作用域数据：`{ value: any, data: Recordable }`
 
-#### 头部插槽（`{key}-desc-header`）
+#### 头部插槽（`{key}-descItem-header`）
 
 在详情组件上方插入自定义内容：
 
 ```vue
 <PageRender>
-  <template #userDetail-desc-header="{ data }">
+  <template #userDetail-descItem-header="{ data }">
     <div class="mb-4">用户：{{ data.name }}</div>
   </template>
 </PageRender>
 ```
 
-#### 底部插槽（`{key}-desc-footer`）
+#### 底部插槽（`{key}-descItem-footer`）
 
 在详情组件下方插入自定义内容：
 
 ```vue
 <PageRender>
-  <template #userDetail-desc-footer>
+  <template #userDetail-descItem-footer>
     <Button type="primary">编辑</Button>
   </template>
 </PageRender>
@@ -1382,10 +1658,10 @@ props.config (JSON 配置)
 **返回值**：
 ```typescript
 {
-    autoJson: Ref<PageRenderConfig>;  // 解析后的配置
-    isValid: Ref<boolean>;             // 是否有效
-    errorMsg: Ref<string | null>;      // 错误信息
-    renderMode: string;                // 渲染模式
+  autoJson: Ref<PageRenderConfig>;  // 解析后的配置
+  isValid: Ref<boolean>;             // 是否有效
+  errorMsg: Ref<string | null>;      // 错误信息
+  renderMode: string;                // 渲染模式
 }
 ```
 
@@ -1400,21 +1676,23 @@ props.config (JSON 配置)
 
 **功能**：配置转换和参数处理
 
-**核心方法**：
+**对外导出**：`mergeRequestParams`、`createRequest`、`transformHeaderActions`、`transformColumns`、`transformRowActions`、`transformFormSchemas`、`transformDescSchemas`、`buildContext`
 
-#### buildContext
+> `resolveExpression` / `parseExpression` 来自 `transformHelpers.ts`，`formatHelpers` 来自 `utils/formatHelpers.ts`。
 
-构建完整的上下文对象，默认包含 route、selection、userInfo，并自动注入内置格式化工具函数（详见 12.2.7）：
+#### buildContext（对外导出）
+
+构建完整的上下文对象，默认包含 route、selection、userInfo，并自动注入内置格式化工具函数：
 
 ```typescript
 function buildContext(overrideContext: Partial<TransformContext> = {}): TransformContext {
-    return {
-        route,                                     // 当前路由信息
-        selection: selectionStore?.selection || {}, // 跨组件选中数据
-        userInfo: userStore.getUserInfo || {},      // 当前登录用户信息
-        ...formatHelpers,                          // 注入内置格式化工具函数
-        ...overrideContext,                        // 调用方传入的上下文（优先级最高）
-    };
+  return {
+    route,                                     // 当前路由信息
+    selection: selectionStore?.selection || {}, // 跨组件选中数据
+    userInfo: userStore.getUserInfo || {},      // 当前登录用户信息
+    ...formatHelpers,                          // 注入内置格式化工具函数
+    ...overrideContext,                        // 调用方传入的上下文（优先级最高）
+  };
 }
 ```
 
@@ -1426,16 +1704,16 @@ function buildContext(overrideContext: Partial<TransformContext> = {}): Transfor
 
 ```typescript
 function mergeRequestParams(
-    params: Recordable,
-    extraParams: Array<{ paramsKey: string; valueKey: string; ifShow?: string }>,
-    context: TransformContext = {}
+  params: Recordable,
+  extraParams: Array<{ paramsKey: string; valueKey: string; ifShow?: string }>,
+  context: TransformContext = {}
 ): Recordable
 
 // 使用示例
 const params = mergeRequestParams(
-    { status: '1' },
-    [{ paramsKey: 'id', valueKey: 'selection.tree.id' }],
-    { selection: { tree: { id: '123' } } }
+  { status: '1' },
+  [{ paramsKey: 'id', valueKey: 'selection.tree.id' }],
+  { selection: { tree: { id: '123' } } }
 );
 // 结果：{ status: '1', id: '123' }
 ```
@@ -1444,54 +1722,24 @@ const params = mergeRequestParams(
 - `extraParams` 支持 `ifShow` 字段，值为表达式时根据上下文判断是否添加该参数
 - 自动通过 `buildContext` 合并 route、selection、userInfo 到上下文
 
-#### resolveExpression
-
-解析字符串中的 `${}` 表达式，替换为上下文中的实际值：
-
-```typescript
-function resolveExpression(
-    expression: string,
-    context: TransformContext
-): any
-
-// 处理逻辑
-// 1. 纯 ${} 包裹：提取变量路径，从 context 中取值
-// 2. 字符串包含 ${}：替换所有变量为实际值
-// 3. 路径格式（不带 ${}）：直接取值
-// 4. 其他情况：原样返回
-
-// 使用示例
-resolveExpression('${rowData.name}', { rowData: { name: '张三' } });
-// 返回：'张三'
-
-resolveExpression('selection.tree.id', { selection: { tree: { id: '123' } } });
-// 返回：'123'
-
-resolveExpression('用户: ${rowData.name} (${rowData.age}岁)', { rowData: { name: '张三', age: 25 } });
-// 返回：'用户: 张三 (25岁)'
-
-resolveExpression('普通文本', {});
-// 返回：'普通文本'
-```
-
 #### createRequest
 
 创建 API 请求函数：
 
 ```typescript
 function createRequest(config: DataSourceConfig) {
-    return (params?: Recordable) => {
-        const url = config.url || '';
-        const method = config.method || 'post';
-        const requestOptions = config.requestOptions || {};
-        return defHttp.request({ url, method, params }, requestOptions);
-    };
+  return (params?: Recordable) => {
+    const url = config.url || '';
+    const method = config.method || 'post';
+    const requestOptions = config.requestOptions || {};
+    return defHttp.request({ url, method, params }, requestOptions);
+  };
 }
 
 // 使用示例
 const apiFn = createRequest({
-    url: '/api/user/list',
-    method: 'post'
+  url: '/api/user/list',
+  method: 'post'
 });
 apiFn({ page: 1 }).then(res => { ... });
 ```
@@ -1509,6 +1757,7 @@ apiFn({ page: 1 }).then(res => { ... });
 | `relativeTime(value)` | 相对时间描述 | - | `relativeTime(rowData.createTime)` → `"3分钟前"` |
 | `now(formatStr?)` | 当前时间 | `'YYYY-MM-DD HH:mm:ss'` | `now('YYYY-MM-DD')` |
 | `numberFormat(value, decimals?)` | 数字格式化 | `2` 位小数 | `numberFormat(rowData.amount, 2)` |
+| `arrayJoin(value, separator?)` | 数组拼接 | `','` | `arrayJoin(rowData.tags, '、')` |
 | `empty(value, placeholder?)` | 空值占位 | `'--'` | `empty(rowData.phone, '未填写')` |
 | `truncate(value, maxLen, suffix?)` | 截断字符串 | `'...'` | `truncate(rowData.remark, 10)` |
 
@@ -1516,29 +1765,29 @@ apiFn({ page: 1 }).then(res => { ... });
 
 ```typescript
 {
-    "title": "创建时间",
-        "dataIndex": "createTime",
-        "format": "${dateFormat(rowData.createTime, 'YYYY-MM-DD HH:mm')}"
+  "title": "创建时间",
+  "dataIndex": "createTime",
+  "format": "${dateFormat(rowData.createTime, 'YYYY-MM-DD HH:mm')}"
 }
 {
-    "title": "年龄",
-    "dataIndex": "birthday",
-    "format": "${calcAge(rowData.birthday) + '岁'}"
+  "title": "年龄",
+  "dataIndex": "birthday",
+  "format": "${calcAge(rowData.birthday) + '岁'}"
 }
 {
-    "title": "更新时间",
-    "dataIndex": "updateTime",
-    "format": "${relativeTime(rowData.updateTime)}"
+  "title": "更新时间",
+  "dataIndex": "updateTime",
+  "format": "${relativeTime(rowData.updateTime)}"
 }
 {
-    "title": "金额",
-    "dataIndex": "amount",
-    "format": "${'¥' + numberFormat(rowData.amount) + '元'}"
+  "title": "金额",
+  "dataIndex": "amount",
+  "format": "${'¥' + numberFormat(rowData.amount) + '元'}"
 }
 {
-    "title": "备注",
-    "dataIndex": "remark",
-    "format": "${truncate(rowData.remark, 20)}"
+  "title": "备注",
+  "dataIndex": "remark",
+  "format": "${truncate(rowData.remark, 20)}"
 }
 ```
 
@@ -1546,9 +1795,9 @@ apiFn({ page: 1 }).then(res => { ... });
 
 ```typescript
 {
-    "title": "审核人",
-        "dataIndex": "auditor",
-        "ifShow": "${!empty(rowData.auditor)}"  // 有审核人时才显示该列
+  "title": "审核人",
+  "dataIndex": "auditor",
+  "ifShow": "${!empty(rowData.auditor)}"  // 有审核人时才显示该列
 }
 ```
 
@@ -1558,8 +1807,8 @@ apiFn({ page: 1 }).then(res => { ... });
 
 ```typescript
 function transformHeaderActions(
-    actions: ActionConfig[],
-    context: TransformContext
+  actions: ActionConfig[],
+  context: TransformContext
 ): ActionConfig[]
 
 // 处理内容
@@ -1572,13 +1821,19 @@ function transformHeaderActions(
 转换表格列配置：
 
 ```typescript
-function transformColumns(columns: any[]): BasicColumn[]
+function transformColumns(
+  columns: any[],
+  options?: { getMergeDataSource?: () => Recordable[] }
+): BasicColumn[]
 
 // 处理内容
 // 1. ifShow 表达式转换为函数
 // 2. format 表达式转换为函数
 // 3. component 组件渲染
+// 4. mergeCell 合并单元格（需传入 getMergeDataSource 获取当前表格数据）
 ```
+
+`options.getMergeDataSource` 用于合并单元格功能：当列配置了 `mergeCell` 时，需要通过此回调获取当前表格的显示数据，以计算合并行数。**仅在需要合并单元格的表格中传递此参数。**
 
 #### transformRowActions
 
@@ -1586,9 +1841,9 @@ function transformColumns(columns: any[]): BasicColumn[]
 
 ```typescript
 function transformRowActions(
-    actions: CellActionConfig[],
-    context: TransformContext,
-    handleAction?: (actionConfig: HandleControlConfig, row: Recordable) => void
+  actions: CellActionConfig[],
+  context: TransformContext,
+  handleAction?: (actionConfig: HandleControlConfig, row: Recordable) => void
 ): CellActionConfig[]
 
 // 处理内容
@@ -1617,9 +1872,9 @@ Schema 支持 `clearBy` 字段，指定依赖字段列表。当依赖字段的�
 
 ```typescript
 {
-    "field": "subCategoryId",
-        "component": "ApiSelect",
-        "clearBy": ["categoryId"]  // 当 categoryId 变化时清空 subCategoryId
+  "field": "subCategoryId",
+  "component": "ApiSelect",
+  "clearBy": ["categoryId"]  // 当 categoryId 变化时清空 subCategoryId
 }
 ```
 
@@ -1635,8 +1890,8 @@ Schema 支持 `clearBy` 字段，指定依赖字段列表。当依赖字段的�
 
 ```typescript
 function transformDescSchemas(
-    schemas: DescSchemaItem[],
-    context: TransformContext
+  schemas: DescSchemaItem[],
+  context: TransformContext
 ): DescItem[]
 
 // 处理内容
@@ -1649,22 +1904,21 @@ function transformDescSchemas(
 
 ```typescript
 {
-    "field": "status",
-        "label": "状态",
-        "component": "CellTag",
-        "componentProps": {
-        "mapOption": [
-            { "label": "启用", "value": "1", "color": "green" },
-            { "label": "禁用", "value": "0", "color": "red" }
-        ]
-    }
+  "field": "status",
+  "label": "状态",
+  "component": "CellTag",
+  "componentProps": {
+    "mapOption": [
+      { "label": "启用", "value": "1", "color": "green" },
+      { "label": "禁用", "value": "0", "color": "red" }
+    ]
+  }
 }
 ```
 
 支持的组件列表详见 `Description/registerComp.ts`，目前包含：
 - `CellTag` — 状态标签
 - `CellCopyText` — 复制文本
-- `CellStatusSwitch` — 状态开关
 
 ### 13.3 useSharedSelection
 
@@ -1673,10 +1927,10 @@ function transformDescSchemas(
 **返回值**：
 ```typescript
 {
-    selection: Reactive<Recordable>;           // 选中数据集合
-    updateSelection: (key, data) => void;      // 更新选中数据
-    getSelectionByKey: (key) => Recordable;    // 获取选中数据
-    clearSelection: (key?) => void;            // 清空选中数据
+  selection: Reactive<Recordable>;           // 选中数据集合
+  updateSelection: (key, data) => void;      // 更新选中数据
+  getSelectionByKey: (key) => Recordable;    // 获取选中数据
+  clearSelection: (key?) => void;            // 清空选中数据
 }
 ```
 
@@ -1702,9 +1956,9 @@ const treeSelection = getSelectionByKey('tree');
 **返回值**：
 ```typescript
 {
-    slotKeys: ComputedRef<string[]>;     // 匹配的插槽键名
-    replaceSlotKey: (key) => string;     // 替换插槽键名
-    renderSlots: (scopeData) => VNode[]; // 渲染插槽
+  slotKeys: ComputedRef<string[]>;     // 匹配的插槽键名
+  replaceSlotKey: (key) => string;     // 替换插槽键名
+  renderSlots: (scopeData) => VNode[]; // 渲染插槽
 }
 ```
 
@@ -1728,8 +1982,8 @@ replaceSlotKey('tab1-cell-name');  // 返回 'name'
 **参数**：
 ```typescript
 function useComponentAction(
-    componentKey: MaybeRefOrGetter<string>,  // 当前组件的 key（支持 ref）
-    actionMap: Record<string, (payload?: any) => void> // 动作映射表
+  componentKey: MaybeRefOrGetter<string>,  // 当前组件的 key（支持 ref）
+  actionMap: Record<string, (payload?: any) => void> // 动作映射表
 )
 ```
 
@@ -1745,14 +1999,14 @@ function useComponentAction(
 ```typescript
 // 在 YwtTable.vue 中注册
 useComponentAction(activeKey, {
-    reload: () => reload()       // 收到 reload 动作时刷新表格
+  reload: () => reload()       // 收到 reload 动作时刷新表格
 });
 
 // 在 YwtForm.vue 中提交成功后触发
 componentEventBus.emit('comp:action', {
-    action: 'reload',
-    targetKeys: ['tab1'],       // 只刷新 tab1 对应的表格
-    payload: {}                  // 可选额外参数
+  action: 'reload',
+  targetKeys: ['tab1'],       // 只刷新 tab1 对应的表格
+  payload: {}                  // 可选额外参数
 });
 ```
 
@@ -1764,8 +2018,8 @@ componentEventBus.emit('comp:action', {
 
 ```typescript
 function handleLinkAction(
-    actionConfig: HandleControlConfig,
-    row?: Recordable
+  actionConfig: HandleControlConfig,
+  row?: Recordable
 ): void
 ```
 
@@ -1867,46 +2121,46 @@ function handleLinkAction(
 const STORAGE_KEY = 'LINK_DYNAMIC_ROUTES';
 
 function handleLinkAction(actionConfig, row) {
-    // ... 解析 path 和 extraData ...
+  // ... 解析 path 和 extraData ...
 
-    if (!routeExists) {
-        const routeName = `Link_${resolvedPath.replace(/[/?&=#.]/g, '_')}`;
-        const serializedExtraData =
-            typeof extraData === 'object' ? JSON.stringify(extraData) : extraData;
-        const menuPath = currentActiveMenu || route.path;
+  if (!routeExists) {
+    const routeName = `Link_${resolvedPath.replace(/[/?&=#.]/g, '_')}`;
+    const serializedExtraData =
+      typeof extraData === 'object' ? JSON.stringify(extraData) : extraData;
+    const menuPath = currentActiveMenu || route.path;
 
-        // 1. 动态注册路由
-        router.addRoute({
-            path: '',
-            name: `${routeName}Parent`,
-            component: LAYOUT,
-            redirect: resolvedPath,
-            meta: { hideMenu: true, single: true, title: componentProps?.title || '' },
-            children: [{
-                path: resolvedPath,
-                name: routeName,
-                component: () => import('@/views/auto-render/index.vue'),
-                meta: {
-                    extraData: serializedExtraData,
-                    renderMode: RenderModeEnum.AUTO,
-                    hideMenu: true,
-                    title: componentProps?.title || '',
-                    currentActiveMenu: menuPath,
-                },
-            }],
-        });
+    // 1. 动态注册路由
+    router.addRoute({
+      path: '',
+      name: `${routeName}Parent`,
+      component: LAYOUT,
+      redirect: resolvedPath,
+      meta: { hideMenu: true, single: true, title: componentProps?.title || '' },
+      children: [{
+        path: resolvedPath,
+        name: routeName,
+        component: () => import('@/views/auto-render/index.vue'),
+        meta: {
+          extraData: serializedExtraData,
+          renderMode: RenderModeEnum.AUTO,
+          hideMenu: true,
+          title: componentProps?.title || '',
+          currentActiveMenu: menuPath,
+        },
+      }],
+    });
 
-        // 2. 持久化到 sessionStorage（刷新后可恢复）
-        const routes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
-        routes[resolvedPath] = {
-            extraData: serializedExtraData,
-            title: componentProps?.title,
-            currentActiveMenu: menuPath,
-        };
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
-    }
+    // 2. 持久化到 sessionStorage（刷新后可恢复）
+    const routes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
+    routes[resolvedPath] = {
+      extraData: serializedExtraData,
+      title: componentProps?.title,
+      currentActiveMenu: menuPath,
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
+  }
 
-    // ... 跳转 ...
+  // ... 跳转 ...
 }
 ```
 
@@ -1962,9 +2216,9 @@ resolveExpression('普通文本', {});
 
 ```typescript
 function parseExpression(
-    expression: string | boolean | undefined | null,
-    context: TransformContext,
-    defaultValue: any = undefined  // 默认 undefined，而非 true
+  expression: string | boolean | undefined | null,
+  context: TransformContext,
+  defaultValue: any = undefined  // 默认 undefined，而非 true
 ): any
 ```
 
@@ -2018,29 +2272,13 @@ function createRequest(config: DataSourceConfig): (params?: Recordable) => Promi
 
 // 示例
 const apiFn = createRequest({
-    url: '/api/user/list',
-    method: 'post'
+  url: '/api/user/list',
+  method: 'post'
 });
 apiFn({ page: 1 }).then(res => { ... });
 ```
 
-#### mergeRequestParams
-
-合并请求参数，支持动态表达式解析和条件过滤：
-
-```typescript
-function mergeRequestParams(
-    params: Recordable,
-    extraParams: Array<{ paramsKey: string; valueKey: string; ifShow?: string }>,
-    context: TransformContext
-): Recordable
-```
-
-**处理流程**：
-1. 复制基础参数
-2. 遍历 extraParams，用 `parseExpression` 计算 `ifShow` 条件
-3. 对通过条件过滤的参数，用 `resolveExpression` 解析 `valueKey`
-4. 值为 `undefined` 时自动跳过，不污染请求参数
+> `mergeRequestParams` 定义在 `useConfigTransform.tsx` 中（见 [13.2 useConfigTransform](#132-useconfigtransform)），`transformHelpers.ts` 仅导出 `resolveExpression`、`parseExpression`、`createRequest`。
 
 ### 14.2 safeEval.ts
 
@@ -2097,7 +2335,7 @@ primary     → NUMBER | STRING | BOOLEAN | NULL | UNDEFINED | IDENTIFIER | "(" 
   详情: { error: "意外的 token", pos: 0, currentToken: ... }
 ```
 
-### 13.3 componentEventBus.ts
+### 14.3 componentEventBus.ts
 
 **功能**：组件事件总线
 
@@ -2113,7 +2351,7 @@ componentEventBus.emit(event, payload);  // 触发事件
 - 单元格切换后刷新数据
 - 跨层级组件通信
 
-### 13.4 linkGuard.ts
+### 14.4 linkGuard.ts
 
 **功能**：Link 动态路由恢复守卫。在路由 `beforeEach` 阶段拦截匹配到 404 的路由，从 `sessionStorage` 恢复之前注册的 Link 动态路由，解决刷新页面后动态路由丢失的问题。
 
@@ -2137,51 +2375,51 @@ router.beforeEach (createLinkGuard)
 
 ```typescript
 export function createLinkGuard(router: Router) {
-    router.beforeEach((to, from, next) => {
-        // 只有匹配到 404 路由时才检查
-        const isPageNotFound = to.matched.some((r) =>
-            r.name?.toString().startsWith(PAGE_NOT_FOUND_NAME),
-        );
-        if (!isPageNotFound) {
-            next();
-            return;
-        }
+  router.beforeEach((to, from, next) => {
+    // 只有匹配到 404 路由时才检查
+    const isPageNotFound = to.matched.some((r) =>
+      r.name?.toString().startsWith(PAGE_NOT_FOUND_NAME),
+    );
+    if (!isPageNotFound) {
+      next();
+      return;
+    }
 
-        // 从 sessionStorage 恢复路由配置
-        const storedRoutes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
-        const config = storedRoutes[to.path];
+    // 从 sessionStorage 恢复路由配置
+    const storedRoutes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
+    const config = storedRoutes[to.path];
 
-        if (!config) {
-            next();
-            return;
-        }
+    if (!config) {
+      next();
+      return;
+    }
 
-        // 动态注册路由（与 useLinkAction 相同的注册逻辑）
-        router.addRoute({
-            path: '',
-            name: `${routeName}Parent`,
-            component: LAYOUT,
-            redirect: to.path,
-            meta: { hideMenu: true, single: true, title: config?.title || '' },
-            children: [
-                {
-                    path: to.path,
-                    name: routeName,
-                    component: () => import('@/views/auto-render/index.vue'),
-                    meta: {
-                        extraData: config?.extraData,
-                        renderMode: 'AUTO',
-                        hideMenu: true,
-                        title: config?.title || '',
-                        currentActiveMenu: config?.currentActiveMenu,
-                    },
-                },
-            ],
-        });
-
-        // replace 触发路由重新匹配
-        next({ path: to.path, query: to.query, replace: true });
+    // 动态注册路由（与 useLinkAction 相同的注册逻辑）
+    router.addRoute({
+      path: '',
+      name: `${routeName}Parent`,
+      component: LAYOUT,
+      redirect: to.path,
+      meta: { hideMenu: true, single: true, title: config?.title || '' },
+      children: [
+        {
+          path: to.path,
+          name: routeName,
+          component: () => import('@/views/auto-render/index.vue'),
+          meta: {
+            extraData: config?.extraData,
+            renderMode: 'AUTO',
+            hideMenu: true,
+            title: config?.title || '',
+            currentActiveMenu: config?.currentActiveMenu,
+          },
+        },
+      ],
     });
+
+    // replace 触发路由重新匹配
+    next({ path: to.path, query: to.query, replace: true });
+  });
 }
 ```
 
@@ -2195,9 +2433,9 @@ const STORAGE_KEY = 'LINK_DYNAMIC_ROUTES';
 // 注册路由时保存配置
 const routes = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
 routes[resolvedPath] = {
-    extraData: serializedExtraData,
-    title: componentProps?.title,
-    currentActiveMenu: menuPath,
+  extraData: serializedExtraData,
+  title: componentProps?.title,
+  currentActiveMenu: menuPath,
 };
 sessionStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
 ```
@@ -2210,8 +2448,8 @@ sessionStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
 import { createLinkGuard } from '@/components/PageRender/utils/linkGuard';
 
 export function createGuard(router: Router) {
-    createLinkGuard(router);
-    // ... 其他守卫
+  createLinkGuard(router);
+  // ... 其他守卫
 }
 ```
 
@@ -2514,7 +2752,7 @@ export function createGuard(router: Router) {
 2. **常量提取**：提取重复使用的配置片段
 3. **注释说明**：为关键配置添加注释
 
-### 15.2 表达式使用
+### 16.2 表达式使用
 
 1. **优先使用路径格式**：`selection.tree.id` 比 `${selection.tree.id}` 更简洁
 2. **复杂计算使用表达式**：`${!selection.tree || !selection.tree.id}`
@@ -2526,7 +2764,7 @@ export function createGuard(router: Router) {
 2. **避免重复请求**：使用 `loadedNodes` 记录已加载节点
 3. **合理设置缓存**：表单数据适当缓存
 
-### 15.4 错误处理
+### 16.4 错误处理
 
 1. **配置验证**：使用 `isValidConfig` 验证配置结构
 2. **错误提示**：提供友好的错误信息
@@ -2657,9 +2895,9 @@ export function createGuard(router: Router) {
 
 ```typescript
 {
-    "disabled": (action) => {
-        return !selection.value?.tree?.id;
-    }
+  "disabled": (action) => {
+    return !selection.value?.tree?.id;
+  }
 }
 ```
 
@@ -2667,7 +2905,31 @@ export function createGuard(router: Router) {
 
 ## 十八、更新日志
 
-### 18.1 v1.2.0 (2026-06-17)
+### 18.1 v1.3.0 (2026-07-24)
+
+- ✅ 新增 `DescConfig` 页面级副标题配置，支持变量插值和字段高亮
+- ✅ 新增 `DescRenderer.vue` 副标题渲染组件
+- ✅ 新增 7 个自定义表单组件：`YwtApiMutiSelect`、`YwtApiMutiTree`、`YwtAreaCascader`、`YwtMapSelect`、`YwtCodeEditor`、`YwtApiCheckboxGroup`、`YwtCropperAvatar`
+- ✅ 新增 `formatHelpers.arrayJoin` 数组拼接工具函数
+- ✅ `CategoryTreeConfig` 新增 `icon` 字段，支持树标题图标
+- ✅ `Description/registerComp.ts` 移除了 `CellStatusSwitch`（仅保留 `CellTag`、`CellCopyText`）
+- ✅ `YwtModal` / `YwtDrawer` 新增 `YwtDescription` 作为内部支持的组件
+- ✅ `index.vue` 补充 `defineExpose` 暴露方法文档（`tabReload`、`selection` 等 5 个）
+- ✅ 补充 `showAction` 头部按钮自动布局逻辑说明
+- ✅ 补充 `YwtTable` 的 `headActionsInTable` prop 和 `defineExpose({ reload })` 文档
+- ✅ 补充 `CategoryTree` 默认值、内置弹窗、`cell-actions` 插槽、`updateSelection` 通知说明
+- ✅ 补充 `YwtForm` 的 `defineExpose({ handleOk })`、默认配置、`rowData` 独立 prop 说明
+- ✅ 修正 `YwtDescription` 插槽前缀：`-desc-` → `-descItem-`
+- ✅ 修正 `useConfigTransform` 文档：明确导出清单，区分内部函数与外部模块
+- ✅ 新增 `SelectionInfoBar.vue` 选中数据展示条组件，纯 props 驱动可外部独立使用
+- ✅ `SelectionInfoBarConfig` 新增 `ifShow` 配置，支持 `parseExpression` 条件显示
+- ✅ `selectionInfoBar` 移入 `CategoryTreeConfig`，跟随树配置更合理
+- ✅ `useConfigTransform` 新增导出 `buildContext`，供 `index.vue` 直接复用
+- ✅ `CategoryTreeConfig` 新增 `badgeConfig` 节点角标配置，支持表达式文案和条件显示
+- ✅ `CategoryTree` 新增 `{treeKey}-node-badge` 插槽，支持自定义角标渲染
+- ✅ `transformColumns` 新增 `options.getMergeDataSource` 参数，支持合并单元格数据源
+
+### 18.2 v1.2.0 (2026-06-17)
 
 - ✅ 新增 `YwtDescription.vue` 详情描述组件，支持配置驱动的详情渲染
 - ✅ 新增 `Description/registerComp.ts`，独立管理详情自定义组件注册
@@ -2675,7 +2937,7 @@ export function createGuard(router: Router) {
 - ✅ 模板支持 `header`/`footer` 命名空间插槽，扩展详情组件前后内容
 - ✅ 更新 `PageRender` 组件架构图，增加 Description 相关节点
 
-### 18.2 v1.1.0 (2026-06-09)
+### 18.3 v1.1.0 (2026-06-09)
 
 - ✅ 新增 `useLinkAction` hook，支持 Link 页面跳转动作（外部链接 + 内部路由）
 - ✅ 新增 `CellTag` 单元格标签组件，支持状态颜色映射
@@ -2685,7 +2947,7 @@ export function createGuard(router: Router) {
 - ✅ 优化弹窗/抽屉错误处理，使用 `awaitTo` 替代 try-catch
 - ✅ 优化状态重置，`closeFunc` 返回 Promise
 
-### 18.2 v1.0.0 (2026-06-05)
+### 18.3 v1.0.0 (2026-06-05)
 
 - ✅ 初始版本发布
 - ✅ 支持分类树 + 表格布局
@@ -2701,7 +2963,7 @@ export function createGuard(router: Router) {
 ## 十九、维护者
 
 - **开发团队**: 天府惠民 前端团队
-- **最后更新**: 2026-06-09
+- **最后更新**: 2026-07-24
 - **技术栈**: Vue 3 + TypeScript + Vite + Ant Design Vue
 
 ---
@@ -2732,10 +2994,18 @@ export function createGuard(router: Router) {
 |--------|------|------|
 | `CellStatusSwitch` | 状态开关 | Table/CellStatusSwitch.vue |
 | `CellTag` | 状态标签 | Table/CellTag.vue |
-| `YwtForm` | 表单组件 | Form/YwtForm.vue |
-| `YwtTable` | 表格组件 | Table/YwtTable.vue |
+| `CellCopyText` | 复制文本 | Table/CellCopyText.vue |
+| `YwtForm` | 表单组件 | YwtForm.vue |
+| `YwtTable` | 表格组件 | YwtTable.vue |
 | `YwtModal` | 弹窗组件 | YwtModal.vue |
 | `YwtDrawer` | 抽屉组件 | YwtDrawer.vue |
+| `YwtDescription` | 详情描述组件 | YwtDescription.vue |
+| `DescRenderer` | 副标题渲染组件 | DescRenderer.vue |
+| `SelectionInfoBar` | 选中数据展示条 | SelectionInfoBar.vue |
+| `YwtAreaCascader` | 区域级联选择器 | Form/YwtAreaCascader.vue |
+| `YwtMapSelect` | 地图选点 | Form/YwtMapSelect/index.vue |
+| `YwtCodeEditor` | 代码编辑器 | Form/YwtCodeEditor.vue |
+| `YwtCropperAvatar` | 头像裁剪 | Form/YwtCropperAvatar.vue |
 
 ### Hooks 映射
 
