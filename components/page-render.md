@@ -44,7 +44,6 @@ PageRender/
 │   ├── Form/
 │   │   ├── registerComp.ts    # 表单组件注册入口
 │   │   ├── YwtApiCheckboxGroup.vue
-│   │   ├── YwtApiMutiSelect.vue
 │   │   ├── YwtApiMutiTree.vue
 │   │   ├── YwtAreaCascader.vue
 │   │   ├── YwtCodeEditor.vue
@@ -146,6 +145,8 @@ PageRenderConfig (配置对象)
 | `clearSelection(key?)` | `(key?: string) => void` | 清空选中数据，不传 key 则清空全部 |
 | `updateSelection(key, data)` | `(key: string, data: any) => void` | 更新指定 key 的选中数据 |
 | `selection` | `Reactive<Recordable>` | 当前所有选中数据的响应式对象 |
+
+**标签页角标数量**：配置 `tableConfig.badgeDataSource` 后，每次角标接口返回都会在 `componentEventBus` 上触发 `comp:badge-counts` 事件（参数 `Array<{ key, count }>`），外层页面/组件订阅即可取用，无需通过 ref 逐层传递。详见 [6.4](#64-标签页配置)。
 
 ### 3.4 头部按钮布局（showAction）
 
@@ -253,6 +254,25 @@ PageRenderConfig (配置对象)
 <SelectionInfoBar label="当前机构" :text="orgName" />
 ```
 
+### 3.9 分类树显示控制
+
+默认情况下，配置了 `categoryTreeConfig` 即显示分类树。需要按条件隐藏时，在 `categoryTreeConfig` 上配置 `ifShow`（布尔值或表达式），上下文与其他表达式一致：`selection` / `route` / `userInfo` 及内置格式化函数。
+
+```json
+{
+  "categoryTreeConfig": {
+    "key": "orgTree",
+    "ifShow": "route.query.showTree === '1'"
+  }
+}
+```
+
+- 不传 `ifShow` 时保持原行为（配置了 `categoryTreeConfig` 即显示）
+- 没有 `categoryTreeConfig` 但提供了 `left` 插槽时，显示 `left` 插槽内容
+- 表达式求值失败时按显示处理（默认值 `true`）
+- 隐藏后右侧表格自动占满宽度，单 tab 场景下头部按钮也会回到页面顶部（见 [3.4](#34-头部按钮布局showaction)），选中数据展示条一并隐藏（见 [3.8](#38-选中数据展示条)）
+- 分类树隐藏时没有节点选中事件，PageRender 会在挂载后主动触发一次表格首屏加载；纯表格页面（无 `categoryTreeConfig`）仍由 `componentProps.immediate` 控制，不受影响
+
 ---
 
 ## 四、类型定义 (types.ts)
@@ -336,8 +356,9 @@ interface TableTabConfig {
   label: string;                            // 标签文本
   icon?: string;                            // 图标
   disabled?: boolean;                       // 是否禁用
-  showCount?: number;                       // 是否显示数量
-  count?: number;                           // 数量值
+  showCount?: boolean | string;             // 是否显示数量角标，支持表达式（如 "!!selection.tree"）
+  countField?: string;                      // 数量字段名：数组取数组项字段（默认 total），对象取对象键（默认同 key）
+  countValue?: string | number;             // 数组响应中的匹配值，默认同 key（如 type 为 1/2/9）
   dataSource?: {
     initSetting?: DataSourceConfig;         // 初始化数据请求
     updateSetting?: DataSourceConfig;       // 更新数据请求
@@ -361,6 +382,7 @@ interface CategoryTreeConfig {
   key: string;                              // 树组件标识
   title?: string;                           // 树标题
   icon?: string;                            // 树标题图标
+  ifShow?: boolean | string;                // 是否显示分类树，支持表达式，不传则配置了 categoryTreeConfig 即显示（见 3.9）
   headerActions?: ActionConfig[];           // 头部操作按钮
   cellActions?: ActionConfig[];             // 节点操作按钮
   badgeConfig?: {                           // 角标配置
@@ -409,6 +431,12 @@ interface DescConfig {
 interface TableConfig {
   defaultActive?: string;  // 默认激活的标签页 key
   tabs: TableTabConfig[];  // 标签页配置数组
+  badgeDataSource?: BadgeDataSourceConfig;  // 标签页角标接口，一次请求返回各标签页数量
+}
+
+/** 标签页角标数据源，其余字段同 DataSourceConfig */
+interface BadgeDataSourceConfig extends DataSourceConfig {
+  valueField?: string;  // 数组响应中用于匹配标签页的字段名，默认 'key'（如接口按 type 区分时配 'type'）
 }
 ```
 
@@ -653,6 +681,7 @@ componentEventBus.emit('comp:action', {
 ### 6.1 功能特性
 
 - **多标签页切换**：支持多个表格标签页
+- **标签页数量角标**：配置 `showCount` 后由角标接口返回各标签页数量
 - **动态列配置**：支持表达式控制列显示和格式化
 - **行操作**：支持多种行操作按钮
 - **树形表格**：支持展开加载子级数据
@@ -683,13 +712,20 @@ defineExpose({ reload });  // reload: () => void — 刷新当前表格
 {
   "tableConfig": {
     "defaultActive": "tab1",
+    "badgeDataSource": {
+      "url": "/api/statistics",
+      "method": "post",
+      "extraParams": [
+        { "paramsKey": "categoryId", "valueKey": "${selection.tree.id}" }
+      ]
+    },
     "tabs": [
       {
         "key": "tab1",
         "label": "待审核",
         "icon": "ant-design:clock-circle-outlined",
-        "showCount": true,
-        "count": 10,
+        "showCount": "!!selection.tree",
+        "countField": "pendingCount",
         "dataSource": {
           "initSetting": {
             "url": "/api/list",
@@ -741,6 +777,40 @@ defineExpose({ reload });  // reload: () => void — 刷新当前表格
     ]
   }
 }
+```
+
+**标签页数量角标**：标签页配置 `showCount: true` 后，标签标题右侧显示红色数字角标。数量由 `tableConfig.badgeDataSource` 指定的角标接口一次返回（页面初始化、刷新表格时请求），取响应 `data`：为对象时按标签页的 `countField`（默认同 `key`）取值；为数组时用 `valueField`（默认 `key`）与标签页的 `countValue`（默认同 `key`）匹配后取 `countField`（默认 `total`）。接口返回前及数量为 0 时不显示。`showCount` 也可直接写表达式按条件显示（上下文同其他表达式：`selection` / `route` / `userInfo` 及内置格式化函数），条件为假时不显示，也不参与角标取数和事件抛出。仅多标签页（`tabs.length > 1`）时生效。
+
+**数组响应**：接口返回 `data: [{ type: 1, total: 3 }, ...]` 这类数组时，配置 `valueField` 指定匹配字段，标签页用 `countValue` 指定匹配值（不传则用 `key`），数量默认取 `total`（可用标签页的 `countField` 改）：
+
+```json
+{
+  "tableConfig": {
+    "badgeDataSource": {
+      "url": "/dici-nhc-cm/admin/template/pendingCount",
+      "method": "get",
+      "valueField": "type"
+    },
+    "tabs": [
+      { "key": "knowledge", "label": "知识宣教", "showCount": true, "countValue": 1 },
+      { "key": "message", "label": "消息通知", "showCount": true, "countValue": 2 },
+      { "key": "customizeTemplate", "label": "自定义消息", "showCount": true, "countValue": 9 }
+    ]
+  }
+}
+```
+
+角标接口返回后，数量会通过组件事件总线 `componentEventBus` 发出 `comp:badge-counts` 事件（参数 `Array<{ key, count }>`，只包含当前 `showCount` 求值为真的标签页；没有可显示的标签页时不会请求角标接口），外层页面/组件直接订阅即可，不需要逐层传递：
+
+```typescript
+import { componentEventBus } from '@dici/shared-comps';
+
+const handleBadgeCounts = (counts: Array<{ key: string; count: number }>) => {
+  // 例：counts.find((item) => item.key === 'pending')?.count
+};
+componentEventBus.on('comp:badge-counts', handleBadgeCounts);
+// 组件卸载时取消订阅
+componentEventBus.off('comp:badge-counts', handleBadgeCounts);
 ```
 
 ### 6.5 列配置增强
@@ -1202,7 +1272,6 @@ async function handleOk() {
 
 | 组件名 | 说明 | 适用场景 |
 |--------|------|---------|
-| `YwtApiMutiSelect` | API 多选下拉 | 从 API 加载选项的多选下拉框 |
 | `YwtApiMutiTree` | API 多选树 | 从 API 加载树形数据的多选组件 |
 | `YwtAreaCascader` | 区域级联选择器 | 省/市/区级联选择 |
 | `YwtMapSelect` | 地图选点 | 在地图上选择位置坐标 |
@@ -2350,6 +2419,7 @@ componentEventBus.emit(event, payload);  // 触发事件
 - 表单提交后刷新表格
 - 单元格切换后刷新数据
 - 跨层级组件通信
+- 标签页角标数量向外抛出（`comp:badge-counts`，见 [6.4](#64-标签页配置)）
 
 ### 14.4 linkGuard.ts
 
@@ -2905,11 +2975,19 @@ export function createGuard(router: Router) {
 
 ## 十八、更新日志
 
-### 18.1 v1.3.0 (2026-07-24)
+### 18.1 v1.4.1 (2026-11-06)
+
+- ✅ `CategoryTreeConfig` 新增 `ifShow` 配置（布尔值或表达式），按条件控制分类树是否显示；隐藏后表格占满宽度，头部按钮布局与选中数据展示条随之联动
+
+### 18.2 v1.4.0 (2026-10-22)
+
+- ✅ `YwtTable` 标签页新增数量角标：`tableConfig.badgeDataSource` 配置角标接口一次取回各页数量，响应为对象时按 tab 的 `countField` 取值，为数组时按 `valueField` + tab 的 `countValue` 匹配；`showCount`（布尔值或表达式）控制显示，数量为 0 或接口未返回时不显示；数量通过 `componentEventBus` 的 `comp:badge-counts` 事件（`Array<{ key, count }>`）向外抛出
+
+### 18.3 v1.3.0 (2026-07-24)
 
 - ✅ 新增 `DescConfig` 页面级副标题配置，支持变量插值和字段高亮
 - ✅ 新增 `DescRenderer.vue` 副标题渲染组件
-- ✅ 新增 7 个自定义表单组件：`YwtApiMutiSelect`、`YwtApiMutiTree`、`YwtAreaCascader`、`YwtMapSelect`、`YwtCodeEditor`、`YwtApiCheckboxGroup`、`YwtCropperAvatar`
+- ✅ 新增 6 个自定义表单组件：`YwtApiMutiTree`、`YwtAreaCascader`、`YwtMapSelect`、`YwtCodeEditor`、`YwtApiCheckboxGroup`、`YwtCropperAvatar`（原 `YwtApiMutiSelect` 已移除，统一使用 `ApiSelect` + `mode: 'multiple'`）
 - ✅ 新增 `formatHelpers.arrayJoin` 数组拼接工具函数
 - ✅ `CategoryTreeConfig` 新增 `icon` 字段，支持树标题图标
 - ✅ `Description/registerComp.ts` 移除了 `CellStatusSwitch`（仅保留 `CellTag`、`CellCopyText`）
@@ -2929,7 +3007,7 @@ export function createGuard(router: Router) {
 - ✅ `CategoryTree` 新增 `{treeKey}-node-badge` 插槽，支持自定义角标渲染
 - ✅ `transformColumns` 新增 `options.getMergeDataSource` 参数，支持合并单元格数据源
 
-### 18.2 v1.2.0 (2026-06-17)
+### 18.4 v1.2.0 (2026-06-17)
 
 - ✅ 新增 `YwtDescription.vue` 详情描述组件，支持配置驱动的详情渲染
 - ✅ 新增 `Description/registerComp.ts`，独立管理详情自定义组件注册
@@ -2937,7 +3015,7 @@ export function createGuard(router: Router) {
 - ✅ 模板支持 `header`/`footer` 命名空间插槽，扩展详情组件前后内容
 - ✅ 更新 `PageRender` 组件架构图，增加 Description 相关节点
 
-### 18.3 v1.1.0 (2026-06-09)
+### 18.5 v1.1.0 (2026-06-09)
 
 - ✅ 新增 `useLinkAction` hook，支持 Link 页面跳转动作（外部链接 + 内部路由）
 - ✅ 新增 `CellTag` 单元格标签组件，支持状态颜色映射
@@ -2947,7 +3025,7 @@ export function createGuard(router: Router) {
 - ✅ 优化弹窗/抽屉错误处理，使用 `awaitTo` 替代 try-catch
 - ✅ 优化状态重置，`closeFunc` 返回 Promise
 
-### 18.3 v1.0.0 (2026-06-05)
+### 18.6 v1.0.0 (2026-06-05)
 
 - ✅ 初始版本发布
 - ✅ 支持分类树 + 表格布局
